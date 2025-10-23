@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int        @id @default(autoincrement())
+  name      String
+  email     String     @unique
+  password  String
+  clothes   Clothing[]
+  matches   Match[]    @relation("UserMatches")
+  createdAt DateTime   @default(now())
+}
+
+model Clothing {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  imageUrl    String
+  category    String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  ownerId     Int
+  createdAt   DateTime @default(now())
+
+  // Back-relations to Match model
+  matchesA Match[] @relation("ClothingA")
+  matchesB Match[] @relation("ClothingB")
+}
+
+model Match {
+  id          Int       @id @default(autoincrement())
+  userA       User      @relation("UserMatches", fields: [userAId], references: [id])
+  userAId     Int
+  userBId     Int
+  clothingA   Clothing? @relation("ClothingA", fields: [clothingAId], references: [id])
+  clothingAId Int?
+  clothingB   Clothing? @relation("ClothingB", fields: [clothingBId], references: [id])
+  clothingBId Int?
+  createdAt   DateTime  @default(now())
+}
