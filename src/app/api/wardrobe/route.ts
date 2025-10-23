@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// No need for formidable yet, we’re just sending JSON
-
 export async function POST(req: Request) {
   try {
     const data = await req.json();
@@ -23,6 +21,30 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(newClothing, { status: 201 });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const ownerId = searchParams.get("ownerId");
+
+    if (!ownerId) {
+      return NextResponse.json({ error: "ownerId is required" }, { status: 400 });
+    }
+
+    const clothes = await prisma.clothing.findMany({
+  where: { ownerId: parseInt(ownerId) },
+  orderBy: { createdAt: "desc" },
+});
+
+// Always return an array
+return NextResponse.json(clothes || [], { status: 200 });
+
+    return NextResponse.json(clothes, { status: 200 });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

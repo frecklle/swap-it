@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Header from "@/components/header";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,27 +12,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "SwapIt",
   description: "Trade your clothes app",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // You can check if user is logged in here via localStorage, cookies, or session
-  const isLoggedIn = typeof window !== "undefined" && !!localStorage.getItem("auth_token");
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-gray-200">
-        {/* Header appears on all pages */}
-        <Header isLoggedIn={isLoggedIn} />
-
-        {/* Page content */}
-        <main>{children}</main>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        {children}
       </body>
     </html>
   );

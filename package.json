@@ -11,6 +11,8 @@
   "dependencies": {
     "@prisma/client": "^6.17.0",
     "bcrypt": "^6.0.0",
+    "cloudinary": "^2.8.0",
+    "formidable": "^3.5.4",
     "framer-motion": "^12.23.22",
     "next": "15.5.4",
     "prisma": "^6.17.0",

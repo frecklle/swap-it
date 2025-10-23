@@ -20,12 +20,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
 
-    // ✅ Create a simple base64 token
+    // Create a simple base64 token
     const tokenPayload = JSON.stringify({ id: user.id, email: user.email });
     const token = Buffer.from(tokenPayload).toString("base64");
 
-    // You can send the token in a cookie or as a JSON response
-    const res = NextResponse.json({ message: "Login successful", token });
+    // Send token in httpOnly cookie
+    const res = NextResponse.json({
+      message: "Login successful",
+      user: { id: user.id, email: user.email }, 
+      token,
+    });
     res.cookies.set("auth_token", token, { httpOnly: true, path: "/" });
 
     return res;

@@ -19,8 +19,11 @@ export default function LoginPage() {
 
     if (res.ok) {
       localStorage.setItem("auth_token", data.token);
+      localStorage.setItem("user_id", data.user.id);
       window.location.href = "/";
-    }
+    }  else {
+    alert(data.error);
+  }
   };
 
   return (

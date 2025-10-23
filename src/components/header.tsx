@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 
-const Header: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [profilePic, setProfilePic] = useState<string | null>(null);
+interface HeaderProps {
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+}
 
-  useEffect(() => {
+const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const [profilePic, setProfilePic] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (token) {
       setIsLoggedIn(true);
@@ -17,23 +22,15 @@ const Header: React.FC = () => {
     }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    setIsLoggedIn(false);
-    setProfilePic(null);
-    window.location.href = "/"; // redirect to landing page
-  };
-
   return (
-    <header className="fixed top-0 left-0 w-full flex justify-between items-center px-6 py-4 z-10 backdrop-blur-sm">
-      {/* Left side: profile + logo (only if logged in) */}
-      <div className="flex items-center gap-3">
+    <header className="fixed top-0 left-0 w-90 flex justify-between items-center px-6 py-4 z-20 backdrop-blur-sm bg-black border-b border-gray-700">
+      <div className="flex items-center gap-4 relative">
         {isLoggedIn && (
           <>
             {/* Profile circle */}
             <button
-              onClick={() => (window.location.href = "/settings")}
-              className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 hover:border-blue-400 transition flex items-center justify-center bg-gray-100/50"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-600 hover:border-white hover:scale-105 transition-all duration-200 flex items-center justify-center bg-gray-800/80 shadow-lg"
             >
               {profilePic ? (
                 <img
@@ -42,30 +39,20 @@ const Header: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-gray-400 font-bold text-lg">👤</span>
+                <span className="text-gray-300 font-bold text-xl">👤</span>
               )}
             </button>
 
             {/* SwapIt logo */}
             <h1
               onClick={() => (window.location.href = "/")}
-              className="text-2xl font-bold text-gray-800 cursor-pointer select-none"
+              className="text-3xl font-bold text-white cursor-pointer select-none hover:text-gray-200 transition-colors duration-200"
             >
               SwapIt
             </h1>
           </>
         )}
       </div>
-
-      {/* Right side: only Log Out if logged in */}
-      {isLoggedIn && (
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 rounded-lg bg-red-500/80 text-white hover:bg-red-600/90 transition"
-        >
-          Log Out
-        </button>
-      )}
     </header>
   );
 };
