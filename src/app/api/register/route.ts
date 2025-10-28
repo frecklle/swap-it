@@ -1,4 +1,3 @@
-// app/api/register/route.ts
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +5,7 @@ import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const { email, password, username } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
@@ -34,16 +33,34 @@ export async function POST(req: Request) {
     }
 
     // Check if email already exists
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 400 });
+    }
+
+    // Check if username exists or generate default
+    let finalUsername = username?.trim();
+    if (!finalUsername) {
+      const randomId = Math.floor(Math.random() * 10000);
+      finalUsername = `user${randomId}`;
+    }
+
+    const existingUsername = await prisma.user.findUnique({ where: { username: finalUsername } });
+    if (existingUsername) {
+      return NextResponse.json({ error: "Username already taken, please choose another" }, { status: 400 });
     }
 
     // Hash password and create user
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await prisma.user.create({
-      data: { email, password: hashedPassword },
+      data: {
+        email,
+        password: hashedPassword,
+        username: finalUsername,
+        bio: "",
+        profilePicture: "",
+      },
     });
 
     // Remove password from response

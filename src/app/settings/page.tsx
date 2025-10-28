@@ -300,14 +300,6 @@ export default function SettingsPage() {
 
             {/* Settings Content */}
             <div className="p-8 space-y-6">
-              {/* Current Email Display */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-gray-900">Current Email</label>
-                <div className="border border-gray-300 p-3 rounded-xl text-gray-900 bg-gray-50">
-                  {email}
-                </div>
-              </div>
-
               {/* Message Display */}
               {message && (
                 <div className={`p-3 rounded-xl text-sm text-center ${
