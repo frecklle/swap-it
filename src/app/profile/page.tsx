@@ -331,13 +331,13 @@ export default function ProfilePage() {
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900">Email</label>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200"
+                  type="email"
+                  value={email}
+                  readOnly
+                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-gray-100 cursor-not-allowed"
                   />
-
                 </div>
+
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900">Member Since</label>
@@ -400,8 +400,15 @@ export default function ProfilePage() {
                 <label className="text-sm font-medium text-gray-900">New Username</label>
                 <input
                   type="text"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
+                  value={newUsername} // includes @ at the start
+                  onChange={(e) => {
+                    let value = e.target.value;
+                    // Make sure @ is always at the start
+                    if (!value.startsWith("@")) {
+                      value = "@" + value.replace(/^@+/, "");
+                    }
+                    setNewUsername(value);
+                  }}
                   placeholder="@username"
                   className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200"
                 />
