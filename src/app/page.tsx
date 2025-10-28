@@ -17,7 +17,7 @@ export default function HomePage() {
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (!token) {
-      window.location.href = "/login";
+      window.location.href = "/welcome";
     } else {
       fetchClothes(token);
     }

@@ -11,6 +11,12 @@ const ProfileSidebar: React.FC<SidebarProps> = ({ onClose, onLogout }) => {
       {/* Top buttons */}
       <div className="flex flex-col mt-10 space-y-6 px-6">
         <button
+          onClick={() => { window.location.href = "/"; onClose(); }}
+          className="text-left hover:bg-gray-800 px-4 py-3 rounded transition"
+        >
+          Swipe
+        </button>
+        <button
           onClick={() => { window.location.href = "/profile"; onClose(); }}
           className="text-left hover:bg-gray-800 px-4 py-3 rounded transition"
         >
