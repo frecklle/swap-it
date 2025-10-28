@@ -1,30 +1,32 @@
+export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-// No need for formidable yet, we’re just sending JSON
+import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    const data = await req.json();
-    const { name, description, category, ownerId } = data;
+    const { email, password } = await req.json();
 
-    if (!name || !category || !ownerId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    const newClothing = await prisma.clothing.create({
-      data: {
-        name,
-        description: description || null,
-        category,
-        ownerId: parseInt(ownerId),
-        imageUrl: "", // placeholder for now
-      },
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return NextResponse.json({ error: "User already exists" }, { status: 400 });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await prisma.user.create({
+      data: { email, password: hashedPassword },
     });
 
-    return NextResponse.json(newClothing, { status: 201 });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const { password: _, ...safeUser } = newUser;
+
+    return NextResponse.json({ message: "User created successfully", user: safeUser });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
 }
