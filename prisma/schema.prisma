@@ -22,33 +22,32 @@ model User {
   matches   Match[]    @relation("UserMatches")
 }
 
-model Follow {
-  id          Int      @id @default(autoincrement())
-  followerId  Int
-  followingId Int
-  createdAt   DateTime @default(now())
-
-  // Relationships
-  follower  User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
-  following User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
-
-  @@unique([followerId, followingId])
-}
-
 
 model Clothing {
   id          Int      @id @default(autoincrement())
   name        String
   description String?
-  imageUrl    String
   category    String
   owner       User     @relation(fields: [ownerId], references: [id])
   ownerId     Int
   createdAt   DateTime @default(now())
 
+  // Multiple images instead of single imageUrl
+  images      ClothingImage[]
+
   // Back-relations to Match model
   matchesA Match[] @relation("ClothingA")
   matchesB Match[] @relation("ClothingB")
+}
+
+model ClothingImage {
+  id        Int      @id @default(autoincrement())
+  url       String
+  clothing  Clothing @relation(fields: [clothingId], references: [id], onDelete: Cascade)
+  clothingId Int
+  createdAt DateTime @default(now())
+
+  @@index([clothingId])
 }
 
 model Match {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import Header from "@/components/header";
 import ProfileSidebar from "@/components/ProfileSidebar";
 
@@ -18,7 +18,6 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"matches" | "messages">("matches");
 
   const [user, setUser] = useState<User | null>(null);
-  const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -26,6 +25,18 @@ export default function ProfilePage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [usernamePopout, setUsernamePopout] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-hide messages after 5 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
@@ -47,7 +58,6 @@ export default function ProfilePage() {
       const res = await fetch("/api/user/me", {
         headers: { 
           "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
         },
       });
       
@@ -55,9 +65,8 @@ export default function ProfilePage() {
       
       if (res.ok && data.user) {
         setUser(data.user);
-        setEmail(data.user.email);
         setUsername(data.user.username);
-        setNewUsername(data.user.username); // Initialize with current username
+        setNewUsername(data.user.username);
         setBio(data.user.bio || "");
         setProfilePicture(data.user.profilePicture || "");
         setMessage(null);
@@ -76,39 +85,123 @@ export default function ProfilePage() {
     fetchUser();
   }, []);
 
-  const handleEmailUpdate = async () => {
-    if (!email) {
-      setMessage({ type: "error", text: "Email is required" });
-      return;
-    }
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
 
+      console.log("Uploading profile picture to Cloudinary...", file.name);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      console.log("Cloudinary upload successful! URL:", data.url);
+      
+      return data.url;
+    } catch (error) {
+      console.error('Upload error:', error);
+      setMessage({ type: "error", text: 'Failed to upload image: ' + (error instanceof Error ? error.message : 'Unknown error') });
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const updateProfileInDatabase = async (updateData: { bio?: string; profilePicture?: string; username?: string }) => {
     const token = localStorage.getItem("auth_token");
     if (!token) {
       setMessage({ type: "error", text: "Not authenticated" });
-      return;
+      return false;
     }
 
     try {
-      const res = await fetch("/api/change-email", {
+      console.log("📤 Sending to database:", updateData);
+      
+      const res = await fetch("/api/update-profile", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json", 
           "Authorization": `Bearer ${token}` 
         },
-        body: JSON.stringify({ newEmail: email }),
+        body: JSON.stringify(updateData),
       });
       
       const data = await res.json();
       
       if (res.ok) {
+        console.log("✅ Profile saved to database:", data.user);
         setMessage({ type: "success", text: data.message });
-        fetchUser();
+        if (data.user) {
+          setUser(data.user);
+          // Update local state with the user data from response
+          setBio(data.user.bio || "");
+          setProfilePicture(data.user.profilePicture || "");
+          setUsername(data.user.username);
+        }
+        return true;
       } else {
-        setMessage({ type: "error", text: data.error || "Failed to update email" });
+        console.error("❌ Database error:", data.error);
+        setMessage({ type: "error", text: data.error || "Failed to update profile" });
+        return false;
       }
     } catch (err) {
-      console.error("Email update error:", err);
+      console.error("❌ Profile update error:", err);
       setMessage({ type: "error", text: "Network error" });
+      return false;
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setMessage({ type: "error", text: "Please select an image file (PNG, JPG, JPEG, WebP)" });
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: "error", text: "Image must be smaller than 5MB" });
+      return;
+    }
+
+    const uploadedUrl = await handleFileUpload(file);
+    if (uploadedUrl) {
+      // Update state immediately for better UX
+      setProfilePicture(uploadedUrl);
+      
+      // Save to database with the new URL
+      const success = await updateProfileInDatabase({ 
+        profilePicture: uploadedUrl,
+        bio: bio // Include current bio to preserve it
+      });
+      
+      if (success) {
+        setMessage({ type: "success", text: "Profile picture updated successfully!" });
+      }
+    }
+  };
+
+  const removeProfilePicture = async () => {
+    const success = await updateProfileInDatabase({ 
+      profilePicture: "", // Empty string to remove profile picture
+      bio: bio // Include current bio to preserve it
+    });
+    
+    if (success) {
+      setProfilePicture("");
+      setMessage({ type: "success", text: "Profile picture removed successfully!" });
     }
   };
 
@@ -118,70 +211,27 @@ export default function ProfilePage() {
       return;
     }
 
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      setMessage({ type: "error", text: "Not authenticated" });
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/change-username", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json", 
-          "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify({ newUsername }),
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        setMessage({ type: "success", text: data.message });
-        setUsername(newUsername);
-        setUsernamePopout(false);
-        fetchUser();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to update username" });
-      }
-    } catch (err) {
-      console.error("Username update error:", err);
-      setMessage({ type: "error", text: "Network error" });
+    const success = await updateProfileInDatabase({ 
+      username: newUsername,
+      bio: bio,
+      profilePicture: profilePicture
+    });
+    
+    if (success) {
+      setUsername(newUsername);
+      setUsernamePopout(false);
     }
   };
 
-  const handleProfileUpdate = async (e: FormEvent) => {
-    e.preventDefault();
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      setMessage({ type: "error", text: "Not authenticated" });
-      return;
+  const handleProfileUpdate = async (e?: FormEvent) => {
+    if (e) {
+      e.preventDefault();
     }
-
-    try {
-      const res = await fetch("/api/update-profile", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json", 
-          "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify({ bio, profilePicture }),
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        setMessage({ type: "success", text: data.message });
-        if (data.user) {
-          setUser(data.user);
-        }
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to update profile" });
-      }
-    } catch (err) {
-      console.error("Profile update error:", err);
-      setMessage({ type: "error", text: "Network error" });
-    }
+    
+    const success = await updateProfileInDatabase({ 
+      bio: bio,
+      profilePicture: profilePicture
+    });
   };
 
   if (loading) {
@@ -306,17 +356,52 @@ export default function ProfilePage() {
               {/* Profile Info */}
               <div className="space-y-4">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-24 h-24 rounded-full bg-gray-200 border border-gray-300 flex items-center justify-center overflow-hidden">
-                    {profilePicture ? (
-                      <img
-                        src={profilePicture}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
+                  {/* Profile Picture Upload Area */}
+                  <div className="relative group">
+                    <div className="w-24 h-24 rounded-full bg-gray-200 border border-gray-300 flex items-center justify-center overflow-hidden">
+                      {profilePicture ? (
+                        <img
+                          src={profilePicture}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-gray-500 text-sm">No Image</span>
+                      )}
+                    </div>
+                    
+                    {/* Upload Overlay */}
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept="image/*"
+                        className="hidden"
                       />
-                    ) : (
-                      <span className="text-gray-500 text-sm">No Image</span>
-                    )}
+                      <div className="flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploading}
+                          className="text-white text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg disabled:opacity-50"
+                        >
+                          {uploading ? "Uploading..." : "Change"}
+                        </button>
+                        {profilePicture && (
+                          <button
+                            type="button"
+                            onClick={removeProfilePicture}
+                            disabled={uploading}
+                            className="text-white text-xs bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg disabled:opacity-50"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
+
                   <div className="flex flex-col items-center gap-2">
                     <div className="text-lg font-semibold text-gray-900">{username}</div>
                     <button
@@ -331,13 +416,15 @@ export default function ProfilePage() {
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900">Email</label>
                   <input
-                  type="email"
-                  value={email}
-                  readOnly
-                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-gray-100 cursor-not-allowed"
+                    type="email"
+                    value={user.email}
+                    readOnly
+                    className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-gray-100 cursor-not-allowed"
                   />
+                  <p className="text-xs text-gray-600">
+                    To change your email, please go to Settings
+                  </p>
                 </div>
-
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900">Member Since</label>
@@ -351,7 +438,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Bio & Profile Picture */}
+              {/* Bio */}
               <form onSubmit={handleProfileUpdate} className="flex flex-col gap-3 pt-4 border-t border-gray-100">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900">Bio</label>
@@ -364,22 +451,12 @@ export default function ProfilePage() {
                   />
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900">Profile Picture URL</label>
-                  <input
-                    type="text"
-                    value={profilePicture}
-                    onChange={(e) => setProfilePicture(e.target.value)}
-                    placeholder="https://example.com/your-photo.jpg"
-                    className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200"
-                  />
-                </div>
-
                 <button
                   type="submit"
-                  className="bg-gray-900 text-white py-3.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition-all duration-200 w-full border border-gray-900 mt-2"
+                  disabled={uploading}
+                  className="bg-gray-900 text-white py-3.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition-all duration-200 w-full border border-gray-900 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Update Profile
+                  {uploading ? "Saving..." : "Update Profile"}
                 </button>
               </form>
             </div>
@@ -400,7 +477,7 @@ export default function ProfilePage() {
                 <label className="text-sm font-medium text-gray-900">New Username</label>
                 <input
                   type="text"
-                  value={newUsername} // includes @ at the start
+                  value={newUsername}
                   onChange={(e) => {
                     let value = e.target.value;
                     // Make sure @ is always at the start
@@ -420,7 +497,7 @@ export default function ProfilePage() {
                 <button
                   onClick={() => {
                     setUsernamePopout(false);
-                    setNewUsername(username); // Reset to current username
+                    setNewUsername(username);
                   }}
                   className="flex-1 bg-white text-gray-900 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all duration-200 border border-gray-300"
                 >
