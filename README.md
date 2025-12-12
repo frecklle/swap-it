@@ -2,7 +2,7 @@
 
 ## 📁 Files Created/Modified
 
-### 1. **server.mjs** (NEW - Root directory)
+### 1. **socket-server.mjs** (NEW - Root directory)
 Custom Next.js server with Socket.IO integration. Place this in your root directory (same level as package.json).
 
 ### 2. **src/components/FloatingChat.tsx** (UPDATED)
@@ -14,15 +14,12 @@ Updated scripts to use the custom server.
 ## 🚀 Setup Steps
 
 ### Step 1: Create the server file
-Create `server.mjs` in your root directory with the Socket.IO server code provided.
+Create `socket-server.mjs` in your root directory with the Socket.IO server code provided.
 
 ### Step 2: Update package.json
 Update your scripts section as shown in the updated package.json.
 
-### Step 3: Replace FloatingChat component
-Replace your current `src/components/FloatingChat.tsx` with the updated version.
-
-### Step 4: Run the application
+### Step 3: Run the application
 ```bash
 npm run dev
 ```
@@ -85,35 +82,12 @@ The server will start on `http://localhost:3000` with both Next.js and Socket.IO
 - User data attached to socket for authorization
 - Room isolation (users can only access their matches)
 
-## 📝 Environment Variables (Optional)
-
-If deploying to production, add to `.env`:
-```env
-NEXT_PUBLIC_APP_URL=https://your-domain.com
-NEXT_PUBLIC_SOCKET_URL=https://your-domain.com
-```
-
-Then update the socket connection in FloatingChat.tsx:
-```typescript
-const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3000", {
-  auth: { token },
-  // ...
-});
-```
 
 ## 🚨 Important Notes
 
 ### Deployment
 - **Vercel**: Socket.IO won't work on Vercel (serverless)
-- **Alternative hosting**: Use Railway, Render, DigitalOcean, AWS EC2, or any platform supporting persistent connections
 - **Separate socket server**: You can run the socket server separately and connect from Vercel-hosted frontend
-
-### For Vercel Deployment
-If you must use Vercel, consider:
-1. Deploy the Next.js app to Vercel
-2. Deploy the Socket.IO server separately (Railway, Render, etc.)
-3. Update `NEXT_PUBLIC_SOCKET_URL` to point to your socket server
-4. Enable CORS on the socket server for your Vercel domain
 
 ### Database Considerations
 - Messages are still saved to Prisma/database
