@@ -1,27 +1,37 @@
 "use client";
+
 import { useState } from "react";
 
 export default function LoginPage() {
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
 
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include", // Important: to receive cookies
+      });
 
-    const data = await res.json();
-    setMessage(data.message || data.error);
+      const data = await res.json();
 
-    if (res.ok) {
-      localStorage.setItem("auth_token", data.token);
-      localStorage.setItem("user_id", data.user.id);
+      if (!res.ok) {
+        setError(data.error || "Login failed");
+        return;
+      }
+
+      // ✅ DON'T store token in localStorage - it's in cookies
+      // ✅ Just redirect - cookies are automatically sent with future requests
       window.location.href = "/";
-    } 
+    } catch (err) {
+      setError("Network error. Please try again.");
+    }
   };
 
   return (
@@ -44,15 +54,17 @@ export default function LoginPage() {
           <input
             type="email"
             placeholder="Email"
+            value={email}
             className="border border-gray-300 p-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all duration-200 text-black"
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
           <input
             type="password"
             placeholder="Password"
+            value={password}
             className="border border-gray-300 p-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all duration-200 text-black"
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            onChange={(e) => setPassword(e.target.value)}
             required
           />
           
@@ -63,13 +75,9 @@ export default function LoginPage() {
             Sign In
           </button>
           
-          {message && (
-            <p className={`text-center text-sm mt-2 ${
-              message.includes("error") || message.includes("Error") 
-                ? "text-red-500" 
-                : "text-green-500"
-            }`}>
-              {message}
+          {error && (
+            <p className="text-center text-sm mt-2 text-red-500">
+              {error}
             </p>
           )}
         </form>

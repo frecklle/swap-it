@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -17,23 +17,14 @@ interface User {
 }
 
 const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
-  const [profilePic, setProfilePic] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [profilePic, setProfilePic] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const fetchUserProfile = async () => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      setIsLoggedIn(false);
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/user/me", {
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-        },
+        credentials: "include", // Send cookies
       });
       
       const data = await res.json();
@@ -55,12 +46,12 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchUserProfile();
   }, []);
 
   // Listen for profile picture updates from other components
-  React.useEffect(() => {
+  useEffect(() => {
     const handleProfileUpdate = () => {
       fetchUserProfile(); // Refresh the profile picture when updated
     };
@@ -87,7 +78,7 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
   return (
     <header className="fixed top-0 left-0 w-90 flex justify-between items-center px-6 py-4 z-20 backdrop-blur-sm bg-black border-b border-gray-700">
       <div className="flex items-center gap-4 relative">
-        {isLoggedIn && (
+        {isLoggedIn ? (
           <>
             {/* Profile circle */}
             <button
@@ -117,6 +108,14 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
               SwapIt
             </h1>
           </>
+        ) : (
+          // Show just the logo if not logged in
+          <h1
+            onClick={() => (window.location.href = "/")}
+            className="text-3xl font-bold text-white cursor-pointer select-none hover:text-gray-200 transition-colors duration-200"
+          >
+            SwapIt
+          </h1>
         )}
       </div>
     </header>

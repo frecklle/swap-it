@@ -1,34 +1,44 @@
 "use client";
 
-import { useState, useEffect, FormEvent, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/header";
 import ProfileSidebar from "@/components/ProfileSidebar";
+import MatchesSidebar from "@/components/MatchesSidebar";
+import FloatingChat from "@/components/FloatingChat";
+import UsernameChangeModal from "@/components/UsernameChangeModal";
+import ProfilePictureUploader from "@/components/ProfilePictureUploader";
+import InfoCard from "@/components/InfoCard";
+import BioSection from "@/components/BioSection";
+import ActionCard from "@/components/ActionCard";
+import { Match } from "@/app/page";
+import { Mail, Edit2, Settings, Shirt, Calendar, User } from "lucide-react";
 
-interface User {
+interface UserData {
   id: number;
   username: string;
   email: string;
   bio?: string;
   profilePicture?: string;
   createdAt: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  searchDistance?: number | null;
 }
 
 export default function ProfilePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"matches" | "messages">("matches");
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const [username, setUsername] = useState("");
-  const [newUsername, setNewUsername] = useState("");
   const [bio, setBio] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [usernamePopout, setUsernamePopout] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-hide messages after 5 seconds
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => {
@@ -38,44 +48,45 @@ export default function ProfilePage() {
     }
   }, [message]);
 
+  const showMessage = useCallback((type: "success" | "error", text: string) => {
+    setMessage({ type, text });
+  }, []);
+
   const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("user_id");
-    setSidebarOpen(false);
-    window.location.href = "/login";
+    fetch("/api/logout", { 
+      method: "POST",
+      credentials: "include" 
+    }).finally(() => {
+      localStorage.clear();
+      setSidebarOpen(false);
+      window.location.href = "/welcome";
+    });
   };
 
-  // Fetch current user
   const fetchUser = async () => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      setMessage({ type: "error", text: "Not authenticated" });
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/user/me", {
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-        },
+        credentials: "include",
       });
+      
+      if (res.status === 401) {
+        window.location.href = "/welcome";
+        return;
+      }
       
       const data = await res.json();
       
       if (res.ok && data.user) {
         setUser(data.user);
         setUsername(data.user.username);
-        setNewUsername(data.user.username);
         setBio(data.user.bio || "");
         setProfilePicture(data.user.profilePicture || "");
-        setMessage(null);
       } else {
-        setMessage({ type: "error", text: data.error || "Failed to fetch user data" });
+        showMessage("error", data.error || "Failed to fetch user data");
       }
     } catch (err) {
       console.error("Fetch user error:", err);
-      setMessage({ type: "error", text: "Network error" });
+      showMessage("error", "Network error");
     } finally {
       setLoading(false);
     }
@@ -91,11 +102,10 @@ export default function ProfilePage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      console.log("Uploading profile picture to Cloudinary...", file.name);
-
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -104,12 +114,10 @@ export default function ProfilePage() {
       }
 
       const data = await response.json();
-      console.log("Cloudinary upload successful! URL:", data.url);
-      
       return data.url;
     } catch (error) {
       console.error('Upload error:', error);
-      setMessage({ type: "error", text: 'Failed to upload image: ' + (error instanceof Error ? error.message : 'Unknown error') });
+      showMessage("error", 'Failed to upload image: ' + (error instanceof Error ? error.message : 'Unknown error'));
       return null;
     } finally {
       setUploading(false);
@@ -117,98 +125,69 @@ export default function ProfilePage() {
   };
 
   const updateProfileInDatabase = async (updateData: { bio?: string; profilePicture?: string; username?: string }) => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      setMessage({ type: "error", text: "Not authenticated" });
-      return false;
-    }
-
     try {
-      console.log("📤 Sending to database:", updateData);
-      
       const res = await fetch("/api/update-profile", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json", 
-          "Authorization": `Bearer ${token}` 
         },
+        credentials: "include",
         body: JSON.stringify(updateData),
       });
       
       const data = await res.json();
       
       if (res.ok) {
-        console.log("✅ Profile saved to database:", data.user);
-        setMessage({ type: "success", text: data.message });
+        showMessage("success", data.message || "Profile updated successfully");
         if (data.user) {
           setUser(data.user);
-          // Update local state with the user data from response
           setBio(data.user.bio || "");
           setProfilePicture(data.user.profilePicture || "");
           setUsername(data.user.username);
+          window.dispatchEvent(new CustomEvent('profileUpdated'));
         }
         return true;
       } else {
-        console.error("❌ Database error:", data.error);
-        setMessage({ type: "error", text: data.error || "Failed to update profile" });
+        showMessage("error", data.error || "Failed to update profile");
         return false;
       }
     } catch (err) {
-      console.error("❌ Profile update error:", err);
-      setMessage({ type: "error", text: "Network error" });
+      console.error("Profile update error:", err);
+      showMessage("error", "Network error");
       return false;
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setMessage({ type: "error", text: "Please select an image file (PNG, JPG, JPEG, WebP)" });
-      return;
-    }
-
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage({ type: "error", text: "Image must be smaller than 5MB" });
-      return;
-    }
-
+  // Updated to return string|null instead of boolean
+  const handlePictureChange = async (file: File): Promise<string | null> => {
     const uploadedUrl = await handleFileUpload(file);
     if (uploadedUrl) {
-      // Update state immediately for better UX
-      setProfilePicture(uploadedUrl);
-      
-      // Save to database with the new URL
       const success = await updateProfileInDatabase({ 
         profilePicture: uploadedUrl,
-        bio: bio // Include current bio to preserve it
+        bio: bio
       });
-      
       if (success) {
-        setMessage({ type: "success", text: "Profile picture updated successfully!" });
+        setProfilePicture(uploadedUrl);
+        return uploadedUrl;
       }
     }
+    return null;
   };
 
-  const removeProfilePicture = async () => {
+  const handlePictureRemove = async (): Promise<void> => {
     const success = await updateProfileInDatabase({ 
-      profilePicture: "", // Empty string to remove profile picture
-      bio: bio // Include current bio to preserve it
+      profilePicture: "",
+      bio: bio
     });
-    
     if (success) {
       setProfilePicture("");
-      setMessage({ type: "success", text: "Profile picture removed successfully!" });
     }
   };
 
-  const handleUsernameUpdate = async () => {
+  const handleUsernameUpdate = async (newUsername: string) => {
     if (!newUsername) {
-      setMessage({ type: "error", text: "Username is required" });
-      return;
+      showMessage("error", "Username is required");
+      return false;
     }
 
     const success = await updateProfileInDatabase({ 
@@ -219,106 +198,81 @@ export default function ProfilePage() {
     
     if (success) {
       setUsername(newUsername);
-      setUsernamePopout(false);
-    }
-  };
-
-  const handleProfileUpdate = async (e?: FormEvent) => {
-    if (e) {
-      e.preventDefault();
     }
     
+    return success;
+  };
+
+  const handleBioChange = async (newBio: string) => {
     const success = await updateProfileInDatabase({ 
-      bio: bio,
+      bio: newBio,
       profilePicture: profilePicture
     });
+    
+    if (success) {
+      setBio(newBio);
+    }
+    
+    return success;
   };
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-white items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
+      <div className="flex min-h-screen bg-gray-50">
+        <MatchesSidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onMatchClick={(match) => setSelectedMatch(match)}
+        />
+        <div className="flex-1 flex flex-col relative bg-gray-50">
+          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          <div className="flex items-center justify-center mt-20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin" />
+              <p className="text-gray-600">Loading your profile...</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex min-h-screen bg-white items-center justify-center">
-        <div className="text-red-500">Failed to load user data</div>
+      <div className="flex min-h-screen bg-gray-50">
+        <MatchesSidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onMatchClick={(match) => setSelectedMatch(match)}
+        />
+        <div className="flex-1 flex flex-col relative bg-gray-50">
+          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          <div className="flex items-center justify-center mt-20">
+            <div className="text-center p-8">
+              <div className="text-red-500 text-lg font-medium mb-2">Failed to load user data</div>
+              <p className="text-sm text-gray-600 mb-4">Please try refreshing the page or check your connection.</p>
+              <button
+                onClick={fetchUser}
+                className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
-      {/* Permanent left panel */}
-      <div className="w-90 bg-white border-r border-gray-200 flex flex-col mt-20">
-        <div className="flex gap-2 p-2 w-full">
-          <button
-            className={`flex-1 rounded-xl p-4 text-center transition-all duration-200 border-2 ${
-              activeTab === "matches"
-                ? "border-black bg-black text-white shadow-lg"
-                : "border-gray-300 text-gray-900 hover:border-gray-400 hover:bg-gray-50"
-            }`}
-            onClick={() => setActiveTab("matches")}
-          >
-            <span className="font-medium">Matches</span>
-          </button>
-          <button
-            className={`flex-1 rounded-xl p-4 text-center transition-all duration-200 border-2 ${
-              activeTab === "messages"
-                ? "border-black bg-black text-white shadow-lg"
-                : "border-gray-300 text-gray-900 hover:border-gray-400 hover:bg-gray-50"
-            }`}
-            onClick={() => setActiveTab("messages")}
-          >
-            <span className="font-medium">Messages</span>
-          </button>
-        </div>
+    <div className="flex min-h-screen bg-gray-50">
+      <MatchesSidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onMatchClick={(match) => setSelectedMatch(match)}
+      />
 
-        <div className="flex-1 p-4">
-          {activeTab === "matches" && (
-            <div className="space-y-3">
-              <div className="text-sm text-gray-700 text-center py-4">
-                Your matches will appear here
-              </div>
-              <div className="border border-gray-200 rounded-xl p-3 hover:bg-gray-50 cursor-pointer transition-all duration-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
-                  <div>
-                    <p className="font-medium text-sm text-gray-900">Mike's Sneakers</p>
-                    <p className="text-xs text-gray-700">Match found</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "messages" && (
-            <div className="space-y-3">
-              <div className="text-sm text-gray-700 text-center py-4">
-                Your conversations will appear here
-              </div>
-              <div className="border border-gray-200 rounded-xl p-3 hover:bg-gray-50 cursor-pointer transition-all duration-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center">
-                      <p className="font-medium text-sm text-gray-900">Sarah</p>
-                      <span className="text-xs text-gray-700">2h ago</span>
-                    </div>
-                    <p className="text-xs text-gray-700 truncate">Hey! I love your jacket design...</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col relative bg-white">
+      <div className="flex-1 flex flex-col relative">
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         {sidebarOpen && (
@@ -334,185 +288,136 @@ export default function ProfilePage() {
           </>
         )}
 
-        <div className="flex flex-col items-center justify-center mt-20">
-          <div className="bg-white border border-gray-200 w-[380px] rounded-3xl shadow-lg flex flex-col relative overflow-hidden">
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-0.5 bg-gray-400"></div>
+        <div className="flex-1 flex flex-col items-center px-4 pt-24 pb-8">
+          <div className="w-full max-w-2xl">
+            {/* Main Profile Card */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-gray-900 rounded-lg">
+                  <User className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Your Profile</h1>
+                  <p className="text-gray-600 text-sm">Manage your personal information</p>
+                </div>
+              </div>
 
-            <div className="p-8 border-b border-gray-100">
-              <h1 className="text-3xl font-light text-gray-900 tracking-tight text-center">Your Profile</h1>
-            </div>
-
-            <div className="p-8 space-y-6">
               {message && (
-                <div className={`p-3 rounded-xl text-sm text-center ${
+                <div className={`mb-6 p-4 rounded-xl text-sm ${
                   message.type === "success" 
-                    ? "bg-green-100 text-green-700 border border-green-200" 
-                    : "bg-red-100 text-red-700 border border-red-200"
+                    ? "bg-green-50 text-green-700 border border-green-200" 
+                    : "bg-red-50 text-red-700 border border-red-200"
                 }`}>
                   {message.text}
                 </div>
               )}
 
-              {/* Profile Info */}
-              <div className="space-y-4">
-                <div className="flex flex-col items-center gap-3">
-                  {/* Profile Picture Upload Area */}
-                  <div className="relative group">
-                    <div className="w-24 h-24 rounded-full bg-gray-200 border border-gray-300 flex items-center justify-center overflow-hidden">
-                      {profilePicture ? (
-                        <img
-                          src={profilePicture}
-                          alt="Profile"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-gray-500 text-sm">No Image</span>
-                      )}
-                    </div>
-                    
-                    {/* Upload Overlay */}
-                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        accept="image/*"
-                        className="hidden"
-                      />
-                      <div className="flex flex-col items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploading}
-                          className="text-white text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg disabled:opacity-50"
-                        >
-                          {uploading ? "Uploading..." : "Change"}
-                        </button>
-                        {profilePicture && (
-                          <button
-                            type="button"
-                            onClick={removeProfilePicture}
-                            disabled={uploading}
-                            className="text-white text-xs bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg disabled:opacity-50"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+              {/* Profile Header */}
+              <div className="flex flex-col items-center mb-8">
+                <ProfilePictureUploader
+                  profilePicture={profilePicture}
+                  onPictureChange={handlePictureChange}
+                  onPictureRemove={handlePictureRemove}
+                  uploading={uploading}
+                />
 
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="text-lg font-semibold text-gray-900">{username}</div>
+                <div className="text-center mt-4">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <h2 className="text-xl font-bold text-gray-900">{username}</h2>
                     <button
                       onClick={() => setUsernamePopout(true)}
-                      className="text-sm text-gray-600 hover:text-gray-900 underline"
+                      className="text-gray-500 hover:text-gray-700 transition-colors"
+                      title="Change username"
                     >
-                      Change Username
+                      <Edit2 className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900">Email</label>
-                  <input
-                    type="email"
-                    value={user.email}
-                    readOnly
-                    className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-gray-100 cursor-not-allowed"
-                  />
-                  <p className="text-xs text-gray-600">
-                    To change your email, please go to Settings
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900">Member Since</label>
-                  <div className="border border-gray-300 p-3 rounded-xl text-gray-900 bg-gray-50">
-                    {new Date(user.createdAt).toLocaleDateString('en-US', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
-                  </div>
+                  <p className="text-sm text-gray-600">Member since {new Date(user.createdAt).getFullYear()}</p>
                 </div>
               </div>
 
-              {/* Bio */}
-              <form onSubmit={handleProfileUpdate} className="flex flex-col gap-3 pt-4 border-t border-gray-100">
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900">Bio</label>
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Tell others about yourself..."
-                    className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 min-h-[80px] resize-none"
-                    rows={3}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={uploading}
-                  className="bg-gray-900 text-white py-3.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition-all duration-200 w-full border border-gray-900 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              {/* Info Sections */}
+              <div className="space-y-6">
+                {/* Email Section */}
+                <InfoCard
+                  icon={<Mail className="w-4 h-4 text-blue-700" />}
+                  title="Email Address"
+                  subtitle={user.email}
                 >
-                  {uploading ? "Saving..." : "Update Profile"}
-                </button>
-              </form>
+                  <p className="text-xs text-gray-500">
+                    To change your email, please go to Settings
+                  </p>
+                </InfoCard>
+
+                {/* Bio Section */}
+                <BioSection
+                  bio={bio}
+                  onBioChange={handleBioChange}
+                  loading={uploading}
+                />
+
+                {/* Account Info */}
+                <InfoCard
+                  icon={<Calendar className="w-4 h-4 text-purple-700" />}
+                  title="Account Information"
+                >
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Member Since</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {new Date(user.createdAt).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Username</span>
+                      <span className="text-sm font-medium text-gray-900">{username}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Items Listed</span>
+                      <span className="text-sm font-medium text-gray-900">0</span>
+                    </div>
+                  </div>
+                </InfoCard>
+              </div>
+            </div>
+
+            {/* Action Cards */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Profile Actions</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <ActionCard
+                  icon={<Settings className="w-4 h-4 text-white" />}
+                  title="Settings"
+                  description="Privacy, location, and preferences"
+                  onClick={() => window.location.href = "/settings"}
+                />
+                
+                <ActionCard
+                  icon={<Shirt className="w-4 h-4 text-white" />}
+                  title="Wardrobe"
+                  description="Manage your clothing items"
+                  onClick={() => window.location.href = "/wardrobe"}
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Username Change Popout */}
-      {usernamePopout && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div 
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-2xl font-light text-gray-900 text-center mb-6">Change Username</h3>
-            <div className="space-y-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-gray-900">New Username</label>
-                <input
-                  type="text"
-                  value={newUsername}
-                  onChange={(e) => {
-                    let value = e.target.value;
-                    // Make sure @ is always at the start
-                    if (!value.startsWith("@")) {
-                      value = "@" + value.replace(/^@+/, "");
-                    }
-                    setNewUsername(value);
-                  }}
-                  placeholder="@username"
-                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200"
-                />
-                <p className="text-xs text-gray-600">
-                  Must start with @, 3-20 characters, letters, numbers, and underscores only
-                </p>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setUsernamePopout(false);
-                    setNewUsername(username);
-                  }}
-                  className="flex-1 bg-white text-gray-900 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all duration-200 border border-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUsernameUpdate}
-                  className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-sm font-medium hover:bg-gray-800 transition-all duration-200 border border-gray-900"
-                >
-                  Change Username
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Username Change Modal */}
+      <UsernameChangeModal
+        isOpen={usernamePopout}
+        onClose={() => setUsernamePopout(false)}
+        currentUsername={username}
+        onUsernameChange={handleUsernameUpdate}
+      />
+
+      {selectedMatch && (
+        <FloatingChat matchId={selectedMatch.id} onClose={() => setSelectedMatch(null)} />
       )}
     </div>
   );

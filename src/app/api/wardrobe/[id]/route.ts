@@ -1,44 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { getUserFromToken } from '@/lib/auth';
 
-const prisma = new PrismaClient();
-
+// DELETE /api/wardrobe/:id
 export async function DELETE(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const user = await getUserFromToken(req);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const id = parseInt(params.id);
+    if (!id) return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
 
-    if (!id) {
-      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
+    const existingItem = await prisma.clothing.findUnique({ where: { id } });
+    if (!existingItem) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+
+    if (existingItem.ownerId !== user.id) {
+      return NextResponse.json({ error: 'You can only delete your own items' }, { status: 403 });
     }
 
-    // Check if item exists
-    const existingItem = await prisma.clothing.findUnique({
-      where: { id },
-      include: { images: true },
-    });
+    await prisma.clothing.delete({ where: { id } });
 
-    if (!existingItem) {
-      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
-    }
-
-    // Delete the item (images will be cascade deleted)
-    await prisma.clothing.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({ 
-      success: true,
-      message: 'Item deleted successfully',
-      deletedItem: existingItem
-    });
-  } catch (error) {
-    console.error('Delete item error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete item' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, message: 'Item deleted successfully' });
+  } catch (err) {
+    console.error('Delete clothing error:', err);
+    return NextResponse.json({ error: 'Failed to delete item' }, { status: 500 });
   }
 }

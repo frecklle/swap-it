@@ -13,18 +13,23 @@ model User {
   email     String   @unique
   password  String
   bio       String?
-  name           String?
-  profilePicture String?  
-  latitude        Float?
-  longitude       Float?
-  searchDistance  Int      @default(50) // -1 for unlimited
+  name      String?
+  profilePicture String?
+  latitude  Float?
+  longitude Float?
+  searchDistance Int @default(50)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  messagesSent Message[] @relation("MessagesSent")
 
   clothes   Clothing[]
-  matches   Match[]    @relation("UserMatches")
-}
+  matchesA Match[] @relation("UserMatchesA")
+  matchesB Match[] @relation("UserMatchesB")
+  messagesSent Message[] @relation("MessagesSent") // Add relation name here
 
+  // Likes sent by this user
+  likesSent Like[] @relation("LikesSent") 
+}
 
 model Clothing {
   id          Int      @id @default(autoincrement())
@@ -35,13 +40,25 @@ model Clothing {
   ownerId     Int
   createdAt   DateTime @default(now())
 
-  // Multiple images instead of single imageUrl
   images      ClothingImage[]
 
-  // Back-relations to Match model
+  // Matches
   matchesA Match[] @relation("ClothingA")
   matchesB Match[] @relation("ClothingB")
+
+  // Likes received
+  likesReceived Like[] @relation("LikesReceived")
 }
+
+model Like {
+  id           Int      @id @default(autoincrement())
+  fromUser     User     @relation("LikesSent", fields: [fromUserId], references: [id])
+  fromUserId   Int
+  toClothing   Clothing @relation("LikesReceived", fields: [toClothingId], references: [id])
+  toClothingId Int
+  createdAt    DateTime @default(now())
+}
+
 
 model ClothingImage {
   id        Int      @id @default(autoincrement())
@@ -55,12 +72,29 @@ model ClothingImage {
 
 model Match {
   id          Int       @id @default(autoincrement())
-  userA       User      @relation("UserMatches", fields: [userAId], references: [id])
+  userA       User      @relation("UserMatchesA", fields: [userAId], references: [id])
   userAId     Int
+  userB       User      @relation("UserMatchesB", fields: [userBId], references: [id])
   userBId     Int
   clothingA   Clothing? @relation("ClothingA", fields: [clothingAId], references: [id])
   clothingAId Int?
   clothingB   Clothing? @relation("ClothingB", fields: [clothingBId], references: [id])
   clothingBId Int?
   createdAt   DateTime  @default(now())
+
+  messages    Message[] // This already references Message model
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  content   String
+  sender    User     @relation("MessagesSent", fields: [senderId], references: [id]) // Add relation name
+  senderId  Int
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  matchId   Int
+  createdAt DateTime @default(now())
+
+  @@index([matchId])
+  @@index([senderId])
+  @@index([createdAt])
 }

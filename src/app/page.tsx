@@ -1,165 +1,332 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, useAnimation } from "framer-motion";
 import Header from "@/components/header";
 import ProfileSidebar from "@/components/ProfileSidebar";
+import FloatingChat from "@/components/FloatingChat";
+import MatchesSidebar from "@/components/MatchesSidebar";
+import ClothingCard from "@/components/ClothingCard";
+import ActionButtons from "@/components/ActionButtons";
+import ClothingInfoModal from "@/components/ClothingInfoModal";
+import { Sparkles } from "lucide-react";
+
+interface ClothingImage {
+  id: number;
+  url: string;
+  clothingId: number;
+  createdAt: string;
+}
+
+interface User {
+  id: number;
+  username: string;
+  name?: string;
+  profilePicture?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+interface Clothing {
+  id: number;
+  name: string;
+  description?: string;
+  category: string;
+  ownerId: number;
+  createdAt: string;
+  images: ClothingImage[];
+  owner?: User;
+}
+
+export interface Match {
+  id: number;
+  userA: { id: number; username: string; name?: string; profilePicture?: string };
+  userB: { id: number; username: string; name?: string; profilePicture?: string };
+  clothingA?: { id: number; name?: string; images?: ClothingImage[] };
+  clothingB?: { id: number; name?: string; images?: ClothingImage[] };
+  createdAt: string;
+  unreadMessages?: number;
+}
 
 export default function HomePage() {
-  const [clothes, setClothes] = useState<any[]>([]);
+  const [clothes, setClothes] = useState<Clothing[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const controls = useAnimation();
-
-  // Sidebar state
+  const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"matches" | "messages">("matches");
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [newMatch, setNewMatch] = useState<Match | null>(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [likedClothingIds, setLikedClothingIds] = useState<Set<number>>(new Set());
+  const [refreshMatches, setRefreshMatches] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const controls = useAnimation();
+  const imageCache = useRef<Map<number, string>>(new Map());
+
+  const item = clothes[currentIndex];
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      window.location.href = "/welcome";
-    } else {
-      fetchClothes(token);
+    const savedLiked = localStorage.getItem("liked_clothing_ids");
+    if (savedLiked) {
+      try {
+        setLikedClothingIds(new Set(JSON.parse(savedLiked)));
+      } catch (e) {
+        console.error("Error parsing liked items:", e);
+      }
     }
+    fetchClothes();
   }, []);
 
-  const fetchClothes = async (token: string) => {
+  const fetchClothes = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
+      // ✅ NO localStorage token check - cookies are sent automatically
       const res = await fetch("/api/clothes", {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include", // This sends cookies automatically
       });
-      const data = await res.json();
-      setClothes(data);
+
+      if (res.status === 401) {
+        // Token is invalid or expired
+        localStorage.removeItem("auth_token"); // Clear if exists
+        window.location.href = "/welcome";
+        return;
+      }
+      
+      if (res.status === 400) {
+        const errorData = await res.json();
+        setError(errorData.error || "Please set your location in settings");
+        setClothes([]);
+        return;
+      }
+      
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      
+      const data: Clothing[] = await res.json();
+      
+      const filteredClothes = data.filter((c) => 
+        c.images?.length > 0 && !likedClothingIds.has(c.id)
+      );
+      
+      setClothes(filteredClothes);
+      setCurrentIndex(0);
     } catch (err) {
-      console.error("Failed to fetch clothes:", err);
+      console.error("Error fetching clothes:", err);
+      if ((err as Error).message.includes("401")) {
+        window.location.href = "/welcome";
+      } else {
+        setError("Failed to load clothes. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSwipe = (direction: "left" | "right") => {
-    const likedItem = clothes[currentIndex];
-    console.log(`Swiped ${direction} on`, likedItem);
-    setCurrentIndex((prev) => prev + 1);
+  const markAsLiked = (clothingId: number) => {
+    const updated = new Set([...likedClothingIds, clothingId]);
+    setLikedClothingIds(updated);
+    localStorage.setItem("liked_clothing_ids", JSON.stringify([...updated]));
+  };
+
+  const handleSwipe = async (direction: "left" | "right") => {
+    if (!item) return;
+
+    let shouldRefreshMatches = false;
+
+    if (direction === "right") {
+      markAsLiked(item.id);
+      shouldRefreshMatches = true;
+      
+      try {
+        const res = await fetch("/api/like", {
+          method: "POST",
+          credentials: "include", // Send cookies
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ clothingId: item.id }),
+        });
+        
+        if (res.ok) {
+          const result = await res.json();
+          
+          if (result.message === "Matched!") {
+            setNewMatch({
+              id: result.matchId || Date.now(),
+              userA: result.userA || { id: 0, username: "You" },
+              userB: result.userB || { id: item.ownerId, username: item.owner?.username || "User" },
+              clothingA: result.clothingA || { id: item.id, name: item.name, images: item.images },
+              clothingB: result.clothingB,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error liking item:", err);
+      }
+    }
+
+    if (currentIndex >= clothes.length - 1) {
+      fetchClothes();
+    } else {
+      setCurrentIndex(prev => prev + 1);
+    }
+
+    if (shouldRefreshMatches) {
+      setRefreshMatches(prev => prev + 1);
+    }
   };
 
   const swipe = async (dir: "left" | "right") => {
     await controls.start({
       x: dir === "right" ? 400 : -400,
       opacity: 0,
+      rotate: dir === "right" ? 15 : -15,
       transition: { duration: 0.3 },
     });
-    handleSwipe(dir);
-    controls.set({ x: 0, opacity: 1 });
+
+    await handleSwipe(dir);
+    controls.set({ x: 0, opacity: 1, rotate: 0 });
+  };
+
+  const handleDragEnd = async (event: any, info: any) => {
+    if (Math.abs(info.offset.x) > 100) {
+      const direction = info.offset.x > 0 ? "right" : "left";
+      await swipe(direction);
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    setSidebarOpen(false);
-    window.location.href = "/";
+    localStorage.clear();
+    // Call logout API to clear cookies
+    fetch("/api/logout", { 
+      method: "POST",
+      credentials: "include" 
+    }).finally(() => {
+      setSidebarOpen(false);
+      window.location.href = "/";
+    });
   };
 
-  const item = clothes[currentIndex];
+  const handleImageLoad = (clothingId: number) => {
+    setLoadedImages(prev => new Set([...prev, clothingId]));
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    e.currentTarget.style.opacity = '0';
+    e.currentTarget.onerror = null;
+  };
 
   return (
     <div className="flex min-h-screen bg-white">
-      {/* Permanent left panel */}
-      <div className="w-90 bg-white border-r border-gray-200 flex flex-col mt-20">
-        <div className="flex gap-2 p-2 w-full">
-          <button
-            className={`flex-1 rounded-xl p-4 text-center transition-all duration-200 border-2 ${
-              activeTab === "matches"
-                ? "border-black bg-black text-white shadow-lg"
-                : "border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50"
-            }`}
-            onClick={() => setActiveTab("matches")}
-          >
-            <span className="font-medium">Matches</span>
-          </button>
-          <button
-            className={`flex-1 rounded-xl p-4 text-center transition-all duration-200 border-2 ${
-              activeTab === "messages"
-                ? "border-black bg-black text-white shadow-lg"
-                : "border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50"
-            }`}
-            onClick={() => setActiveTab("messages")}
-          >
-            <span className="font-medium">Messages</span>
-          </button>
-        </div>
-      </div>
+      <MatchesSidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onMatchClick={(match) => setSelectedMatch(match)}
+        refreshMatches={refreshMatches}
+      />
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col relative bg-white">
+      <div className="flex-1 flex flex-col relative bg-gradient-to-br from-gray-50 via-white to-gray-100">
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-        {/* Optional overlay sidebar */}
         {sidebarOpen && (
           <>
-            <div
-              className="fixed inset-0 bg-black/40 z-40"
-              onClick={() => setSidebarOpen(false)}
-            />
-            <ProfileSidebar
-              onClose={() => setSidebarOpen(false)}
-              onLogout={handleLogout}
-            />
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setSidebarOpen(false)} />
+            <ProfileSidebar onClose={() => setSidebarOpen(false)} onLogout={handleLogout} />
           </>
         )}
 
-        <div className="flex flex-col items-center justify-center mt-20">
-          {activeTab === "matches" || activeTab === "messages" ? (
-            <div className="bg-white border border-gray-200 w-[380px] h-[680px] rounded-3xl shadow-lg flex flex-col items-center justify-center relative overflow-hidden">
-              {item ? (
-                <motion.div
-  key={item.id}
-  animate={controls}
-  drag="x"
-  dragConstraints={{ left: 0, right: 0 }}
-  onDragEnd={(_, info) => {
-    if (info.offset.x > 100) swipe("right");
-    else if (info.offset.x < -100) swipe("left");
-  }}
-  className="w-full h-full cursor-grab active:cursor-grabbing relative flex items-center justify-center"
->
-  {/* Invisible overlay to capture drag (optional) */}
-  <div className="absolute inset-0" />
-
-  {/* The image itself */}
-  <img
-    src={item.imageUrl || "/placeholder-clothing.jpg"}
-    alt="Clothing item"
-    draggable={false} // Important: prevent browser drag
-    className="w-full h-full object-cover rounded-3xl select-none"
-  />
-</motion.div>
-
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                  <p className="text-lg font-medium">No more clothes to show</p>
-                  <p className="text-sm text-gray-400 mt-2">Check back later!</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+          {error ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <div className="text-6xl mb-4">📍</div>
+              <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent">
+                Location Required
+              </h3>
+              <p className="text-gray-600 mb-4 max-w-md">{error}</p>
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="px-6 py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition-all font-medium"
+              >
+                Go to Settings
+              </button>
+            </div>
+          ) : isLoading ? (
+            <div className="flex flex-col items-center justify-center h-full">
+              <div className="relative">
+                <div className="w-20 h-20 border-4 border-gray-200 border-t-black rounded-full animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Sparkles className="w-8 h-8 text-black animate-pulse" />
                 </div>
-              )}
-
-              <div className="flex gap-6 mt-6 mb-3">
-                <button
-                  onClick={() => swipe("left")}
-                  className="bg-transparent border border-gray-400 text-gray-600 px-8 py-3 rounded-xl hover:bg-gray-50 hover:border-gray-600 transition-all duration-200 font-medium"
-                >
-                  Pass
-                </button>
-                <button
-                  onClick={() => swipe("right")}
-                  className="bg-black text-white px-8 py-3 rounded-xl hover:bg-gray-800 transition-all duration-200 font-medium shadow-lg"
-                >
-                  Like
-                </button>
               </div>
+              <p className="mt-6 text-gray-600 font-medium">Curating your perfect matches...</p>
+              <p className="mt-2 text-sm text-gray-400">Finding items you'll love</p>
+            </div>
+          ) : item ? (
+            <div className="flex flex-col items-center gap-8 w-full">
+              <ClothingCard
+                item={item}
+                controls={controls}
+                onInfoClick={() => setShowInfoModal(true)}
+                onImageLoad={handleImageLoad}
+                onImageError={handleImageError}
+                onDragEnd={handleDragEnd}
+              />
+
+              <ActionButtons
+                onSwipeLeft={() => swipe("left")}
+                onSwipeRight={() => swipe("right")}
+              />
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center mt-20">
-              <p className="text-gray-500">Select a tab from the left panel</p>
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8 text-center">
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="text-7xl mb-6"
+              >
+                🔄
+              </motion.div>
+              <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                No More Items Found
+              </h3>
+              <p className="text-gray-400 max-w-md mb-4">
+                You've seen all available items in your area. Try adjusting your search distance or check back later!
+              </p>
+              <button
+                onClick={fetchClothes}
+                className="mt-2 px-6 py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition-all font-medium flex items-center gap-2"
+              >
+                <Sparkles size={16} />
+                Refresh Items
+              </button>
             </div>
           )}
         </div>
+
+        {showInfoModal && item && (
+          <ClothingInfoModal
+            item={item}
+            onClose={() => setShowInfoModal(false)}
+          />
+        )}
+
+        {newMatch && (
+          <div className="fixed top-20 right-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white p-3 rounded-xl shadow-xl animate-pulse z-50 max-w-xs">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">🎉</div>
+              <div>
+                <p className="font-bold text-sm">New Match!</p>
+                <p className="text-xs opacity-90">You've matched with someone!</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedMatch && (
+          <FloatingChat matchId={selectedMatch.id} onClose={() => setSelectedMatch(null)} />
+        )}
       </div>
     </div>
   );

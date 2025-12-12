@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromToken } from "@/lib/auth";
@@ -6,34 +7,26 @@ import { getUserFromToken } from "@/lib/auth";
 export async function POST(req: Request) {
   try {
     const user = await getUserFromToken(req);
-    if (!user)
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const body = await req.json();
     const { username, bio, profilePicture } = body;
 
-    // 🔍 DEBUG: Log what we're receiving
-    console.log("📥 Received profile update data:", {
-      username,
-      bio,
-      profilePicture,
-      profilePictureType: typeof profilePicture,
-      profilePictureLength: profilePicture?.length,
-      hasProfilePicture: profilePicture !== undefined && profilePicture !== null && profilePicture !== ""
-    });
-
     const updatedData: any = {};
 
-    // ✅ Only include fields that were actually sent
-    if (bio !== undefined) updatedData.bio = bio;
-    
-    // ✅ Handle profilePicture - allow empty strings to remove profile picture
-    if (profilePicture !== undefined) {
-      updatedData.profilePicture = profilePicture;
-      console.log("🖼️ Setting profilePicture to:", profilePicture);
+    // Bio (allow empty string)
+    if (bio !== undefined) {
+      updatedData.bio = bio;
     }
 
-    // ✅ Handle username (optional)
+    // Profile picture (allow null/empty -> remove image)
+    if (profilePicture !== undefined) {
+      updatedData.profilePicture = profilePicture || null;
+    }
+
+    // Username
     if (username) {
       const cleanUsername = username.trim();
 
@@ -58,11 +51,7 @@ export async function POST(req: Request) {
       updatedData.username = cleanUsername;
     }
 
-    console.log("📝 Final data to update:", updatedData);
-
-    // 🔍 DEBUG: Check if we have any data to update
     if (Object.keys(updatedData).length === 0) {
-      console.log("❌ No data to update!");
       return NextResponse.json(
         { error: "No data provided to update" },
         { status: 400 }
@@ -82,15 +71,12 @@ export async function POST(req: Request) {
       },
     });
 
-    console.log("✅ Profile updated successfully:", updatedUser);
-    console.log("🖼️ Profile picture after update:", updatedUser.profilePicture);
-
     return NextResponse.json({
       message: "Profile updated successfully",
       user: updatedUser,
     });
   } catch (err) {
-    console.error("❌ Update profile error:", err);
+    console.error("Update profile error:", err);
     return NextResponse.json(
       { error: "Something went wrong" },
       { status: 500 }

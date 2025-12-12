@@ -2,34 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromToken } from "@/lib/auth";
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const user = await getUserFromToken(request);
-    if (!user)
+    const user = await getUserFromToken(req);
+    
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const userData = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        bio: true,
-        profilePicture: true, // ✅ important
-        createdAt: true,
-      },
-    });
-
-    if (!userData) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ user: userData });
+    // Return safe user data (without password)
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      profilePicture: user.profilePicture || null,
+      bio: user.bio || null,
+      latitude: user.latitude,
+      longitude: user.longitude,
+      searchDistance: user.searchDistance,
+      createdAt: user.createdAt,
+    };
+
+    return NextResponse.json({ user: safeUser });
   } catch (err) {
-    console.error("❌ Get user error:", err);
-    return NextResponse.json(
-      { error: "Something went wrong" },
-      { status: 500 }
-    );
+    console.error("Error fetching user:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

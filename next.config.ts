@@ -1,9 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
   images: {
-    domains: ["images.unsplash.com"], // allow Unsplash image host
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.cloudinary.com',
+        pathname: '/**',
+      },
+    ],
   },
+  // Optional: If you're using other features
+  reactStrictMode: true,
+  swcMinify: true,
 };
 
 module.exports = nextConfig;

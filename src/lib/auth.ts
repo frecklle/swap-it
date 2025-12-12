@@ -1,25 +1,42 @@
-// lib/auth.ts
 import { prisma } from "@/lib/prisma";
+import { verifyToken } from "@/lib/jwt";
 
 export async function getUserFromToken(req: Request) {
-  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  let token: string | undefined;
+
+  // 1. Try Authorization header
+  const authHeader =
+    req.headers.get("authorization") ||
+    req.headers.get("Authorization");
+
+  if (authHeader?.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  }
+
+  // 2. Try cookies
+  if (!token) {
+    const cookieHeader = req.headers.get("cookie");
+    const match = cookieHeader?.match(/auth_token=([^;]+)/);
+    token = match?.[1];
+  }
+
+  if (!token) return null;
 
   try {
-    const token = authHeader.split(" ")[1];
-    const payload = JSON.parse(Buffer.from(token, "base64").toString("utf-8"));
+    const payload = verifyToken(token);
 
-    if (!payload?.id) {
-      console.error("Token payload missing id:", payload);
-      return null;
-    }
+    if (!payload?.id) return null;
 
-    const user = await prisma.user.findUnique({ where: { id: payload.id } });
-    if (!user) console.error("No user found for token id:", payload.id);
+    const userId = Number(payload.id);
+    if (!userId) return null;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
 
     return user;
   } catch (err) {
-    console.error("Failed to parse token:", err);
+    console.error("Invalid token:", err);
     return null;
   }
 }

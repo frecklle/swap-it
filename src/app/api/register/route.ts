@@ -18,39 +18,31 @@ export async function POST(req: Request) {
     }
 
     // Password validation
-    const minLength = 8;
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    
-    if (password.length < minLength) {
+    if (password.length < 8) {
       return NextResponse.json({ error: "Password must be at least 8 characters long" }, { status: 400 });
     }
-    if (!hasUpperCase) {
+    if (!/[A-Z]/.test(password)) {
       return NextResponse.json({ error: "Password must contain at least one uppercase letter" }, { status: 400 });
     }
-    if (!hasNumber) {
+    if (!/[0-9]/.test(password)) {
       return NextResponse.json({ error: "Password must contain at least one number" }, { status: 400 });
     }
 
-    // Check if email already exists
     const existingEmail = await prisma.user.findUnique({ where: { email } });
     if (existingEmail) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 400 });
     }
 
-    // Check if username exists or generate default
     let finalUsername = username?.trim();
     if (!finalUsername) {
-      const randomId = Math.floor(Math.random() * 10000);
-      finalUsername = `user${randomId}`;
+      finalUsername = `user${Math.floor(Math.random() * 10000)}`;
     }
 
     const existingUsername = await prisma.user.findUnique({ where: { username: finalUsername } });
     if (existingUsername) {
-      return NextResponse.json({ error: "Username already taken, please choose another" }, { status: 400 });
+      return NextResponse.json({ error: "Username already taken" }, { status: 400 });
     }
 
-    // Hash password and create user
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await prisma.user.create({
@@ -63,14 +55,12 @@ export async function POST(req: Request) {
       },
     });
 
-    // Remove password from response
     const { password: _, ...safeUser } = newUser;
 
-    return NextResponse.json({ 
-      message: "User created successfully", 
-      user: safeUser 
+    return NextResponse.json({
+      message: "User created successfully",
+      user: safeUser,
     });
-
   } catch (error) {
     console.error("Registration error:", error);
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });

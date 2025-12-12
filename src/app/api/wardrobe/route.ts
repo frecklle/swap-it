@@ -1,90 +1,129 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { getUserFromToken } from '@/lib/auth';
 
-const prisma = new PrismaClient();
-
-export async function POST(request: NextRequest) {
+// POST /api/wardrobe - create a clothing item
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    console.log('Received data for clothing item:', body);
+    const user = await getUserFromToken(req);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { name, description, category, imageUrls, ownerId } = body;
-
-    // Validate required fields
-    if (!name || !category || !ownerId) {
+    // Require location before uploading
+    if (user.latitude == null || user.longitude == null) {
       return NextResponse.json(
-        { error: 'Name, category, and ownerId are required' },
+        { error: 'Set your location before uploading clothes' },
         { status: 400 }
       );
     }
 
-    // Validate image count (1-3)
+    const body = await req.json();
+    const { name, description, category, imageUrls } = body;
+
+    if (!name || !category) {
+      return NextResponse.json({ error: 'Name and category are required' }, { status: 400 });
+    }
+
     if (!imageUrls || imageUrls.length === 0 || imageUrls.length > 3) {
-      return NextResponse.json(
-        { error: 'Please provide 1-3 images' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Provide 1-3 images' }, { status: 400 });
     }
 
-    // Create the clothing item with images
+    // Create the clothing item first
     const newClothing = await prisma.clothing.create({
       data: {
         name: name.trim(),
         description: description?.trim() || null,
         category,
-        ownerId: parseInt(ownerId),
-        images: {
-          create: imageUrls.map((url: string) => ({
-            url: url,
-          })),
-        },
-      },
-      include: {
-        images: true,
+        ownerId: user.id,
       },
     });
 
-    console.log('Successfully created clothing item with images:', newClothing);
-    
-    return NextResponse.json(newClothing);
-  } catch (error) {
-    console.error('Failed to create clothing item:', error);
-    return NextResponse.json(
-      { error: 'Failed to create clothing item' },
-      { status: 500 }
+    // Then create images associated with the clothing item
+    const images = await Promise.all(
+      imageUrls.map((url: string) =>
+        prisma.clothingImage.create({
+          data: {
+            url,
+            clothingId: newClothing.id,
+          },
+        })
+      )
     );
+
+    // Return the complete clothing item with images
+    return NextResponse.json({
+      ...newClothing,
+      images,
+    });
+  } catch (err) {
+    console.error('Create clothing error:', err);
+    return NextResponse.json({ error: 'Failed to create clothing item' }, { status: 500 });
   }
 }
 
-// GET route also needs updating to include images
-export async function GET(request: NextRequest) {
+// GET /api/wardrobe?ownerId=123 - get clothes for a user
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const ownerId = searchParams.get('ownerId');
+    const user = await getUserFromToken(req);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!ownerId) {
-      return NextResponse.json({ error: 'Owner ID is required' }, { status: 400 });
+    const { searchParams } = new URL(req.url);
+    const ownerId = searchParams.get('ownerId');
+    
+    // Verify the requested ownerId matches the authenticated user
+    if (!ownerId || parseInt(ownerId) !== user.id) {
+      return NextResponse.json({ error: 'Unauthorized to view this wardrobe' }, { status: 403 });
     }
 
     const clothes = await prisma.clothing.findMany({
-      where: {
-        ownerId: parseInt(ownerId),
+      where: { ownerId: user.id },
+      include: { 
+        images: true,
       },
-      include: {
-        images: {
-          orderBy: {
-            createdAt: 'asc',
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json(clothes);
-  } catch (error) {
-    console.error('Failed to fetch clothes:', error);
+  } catch (err) {
+    console.error('Fetch clothes error:', err);
     return NextResponse.json({ error: 'Failed to fetch clothes' }, { status: 500 });
+  }
+}
+
+// DELETE /api/wardrobe/[id] - delete a clothing item
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getUserFromToken(req);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const url = new URL(req.url);
+    const pathSegments = url.pathname.split('/');
+    const id = pathSegments[pathSegments.length - 1];
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
+    }
+
+    // First, find the clothing item to verify ownership
+    const clothing = await prisma.clothing.findUnique({
+      where: { id: parseInt(id) },
+    });
+
+    if (!clothing) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    }
+
+    if (clothing.ownerId !== user.id) {
+      return NextResponse.json({ error: 'Unauthorized to delete this item' }, { status: 403 });
+    }
+
+    // Delete the clothing item (cascading delete will handle images)
+    await prisma.clothing.delete({
+      where: { id: parseInt(id) },
+    });
+
+    return NextResponse.json({ message: 'Item deleted successfully' });
+  } catch (err) {
+    console.error('Delete clothing error:', err);
+    return NextResponse.json({ error: 'Failed to delete item' }, { status: 500 });
   }
 }

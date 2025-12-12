@@ -1,55 +1,62 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
+export const runtime = "nodejs";
+
+import { NextRequest, NextResponse } from "next/server";
+import { v2 as cloudinary } from "cloudinary";
+import { getUserFromToken } from "@/lib/auth";
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
 });
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    // 1️⃣ Get user from token
+    const user = await getUserFromToken(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Convert file to buffer
+    // 2️⃣ Require location before uploading
+    if (user.latitude == null || user.longitude == null) {
+      return NextResponse.json(
+        { error: "Set your location before uploading clothes" },
+        { status: 400 }
+      );
+    }
+
+    // 3️⃣ Get file from formData
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    // 4️⃣ Convert to base64
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
 
-    // Convert buffer to base64
-    const base64String = `data:${file.type};base64,${buffer.toString('base64')}`;
-
-    // Upload to Cloudinary
-    const result = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload(
-        base64String,
-        {
-          folder: 'wardrobe-app',
-          transformation: [
-            { width: 800, height: 800, crop: 'limit' }, // Resize for optimization
-            { quality: 'auto' },
-            { format: 'auto' }
-          ]
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
+    // 5️⃣ Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(base64, {
+      folder: `wardrobe-app/users/${user.id}`,
+      transformation: [
+        { width: 800, height: 800, crop: "limit" },
+        { quality: "auto" },
+        { format: "auto" },
+      ],
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      url: (result as any).secure_url,
-      publicId: (result as any).public_id
+    // 6️⃣ Respond with uploaded file info
+    return NextResponse.json({
+      success: true,
+      url: result.secure_url,
+      publicId: result.public_id,
     });
-
-  } catch (error) {
-    console.error('Cloudinary upload error:', error);
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+  } catch (err) {
+    console.error("Cloudinary upload error:", err);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

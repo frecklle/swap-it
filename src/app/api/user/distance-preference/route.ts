@@ -9,22 +9,20 @@ export async function POST(request: NextRequest) {
 
     const { distance } = await request.json();
 
-    // Validate distance value
     const validDistances = [-1, 1, 5, 10, 25, 50, 100];
-    if (!validDistances.includes(distance)) {
+    if (typeof distance !== "number" || !validDistances.includes(distance)) {
       return NextResponse.json({ error: "Invalid distance value" }, { status: 400 });
     }
 
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
-      data: {
-        searchDistance: distance,
-      },
+      data: { searchDistance: distance },
+      select: { searchDistance: true },
     });
 
     return NextResponse.json({
       message: "Distance preference updated successfully",
-      distance: updatedUser.searchDistance
+      distance: updatedUser.searchDistance,
     });
   } catch (err) {
     console.error("Distance preference update error:", err);
