@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUserFromToken } from '@/lib/auth';
 
-// DELETE /api/wardrobe/:id
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }

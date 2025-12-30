@@ -1,12 +1,13 @@
-export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, username } = await req.json();
+    let { email, password, username } = await req.json();
 
+    // Normalize email
+    email = email?.trim().toLowerCase();
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Please enter a valid email address" }, { status: 400 });
     }
 
-    // Password validation
+    // Password validation rules
     if (password.length < 8) {
       return NextResponse.json({ error: "Password must be at least 8 characters long" }, { status: 400 });
     }
@@ -28,17 +29,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Password must contain at least one number" }, { status: 400 });
     }
 
-    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    // Check if email already exists (case-insensitive)
+    const existingEmail = await prisma.user.findUnique({
+      where: { email },
+    });
+
     if (existingEmail) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 400 });
     }
 
-    let finalUsername = username?.trim();
-    if (!finalUsername) {
-      finalUsername = `user${Math.floor(Math.random() * 10000)}`;
-    }
+    // Auto-generate a username if not provided
+    username = username?.trim() || `user${Math.floor(Math.random() * 10000)}`;
 
-    const existingUsername = await prisma.user.findUnique({ where: { username: finalUsername } });
+    // Reject if the username is taken
+    const existingUsername = await prisma.user.findUnique({ where: { username } });
     if (existingUsername) {
       return NextResponse.json({ error: "Username already taken" }, { status: 400 });
     }
@@ -49,7 +53,7 @@ export async function POST(req: Request) {
       data: {
         email,
         password: hashedPassword,
-        username: finalUsername,
+        username,
         bio: "",
         profilePicture: "",
       },
@@ -57,10 +61,10 @@ export async function POST(req: Request) {
 
     const { password: _, ...safeUser } = newUser;
 
-    return NextResponse.json({
-      message: "User created successfully",
-      user: safeUser,
-    });
+    return NextResponse.json(
+      { message: "User created successfully", user: safeUser },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Registration error:", error);
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });

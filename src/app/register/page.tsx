@@ -8,10 +8,18 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Clean and validate before sending
+    const cleanedEmail = form.email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanedEmail)) {
+      setMessage("Invalid email format.");
+      return;
+    }
+
     const res = await fetch("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ email: cleanedEmail, password: form.password }),
     });
 
     const data = await res.json();
@@ -24,64 +32,52 @@ export default function RegisterPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      {/* App container */}
       <div className="relative flex flex-col items-center gap-8 w-[380px] max-w-[80%] p-12 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        
-        {/* Subtle background elements */}
-        <div className="absolute top-10 left-10 w-32 h-32 bg-gray-100 rounded-full opacity-60 -z-10"></div>
-        <div className="absolute bottom-8 right-8 w-40 h-40 bg-gray-50 rounded-full opacity-80 -z-10"></div>
-        
-        {/* Minimal accent line */}
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-0.5 bg-gray-300"></div>
 
-        {/* Logo */}
         <p className="text-4xl font-light text-gray-900 tracking-tight">SwapIt</p>
 
-        {/* Registration Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-full">
           <input
             type="email"
             placeholder="Email"
-            className="border border-gray-300 p-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all duration-200 text-black"
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            className="border border-gray-300 p-3 rounded-xl text-sm focus:ring-2 focus:ring-gray-400 transition-all text-black"
+            onChange={(e) =>
+              setForm({ ...form, email: e.target.value.toLowerCase() })
+            }
             required
           />
+
           <input
             type="password"
             placeholder="Password"
-            className="border border-gray-300 p-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all duration-200 text-black"
+            className="border border-gray-300 p-3 rounded-xl text-sm focus:ring-2 focus:ring-gray-400 transition-all text-black"
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
           />
-          
+
           <button
             type="submit"
-            className="bg-gray-900 text-white py-3.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition-all duration-200 w-full border border-gray-900 mt-2"
+            className="bg-gray-900 text-white py-3.5 rounded-xl font-medium hover:bg-gray-800 transition-all w-full mt-2"
           >
             Create Account
           </button>
-          
+
           {message && (
-            <p className={`text-center text-sm mt-2 ${
-              message.includes("error") || message.includes("Error") 
-                ? "text-red-500" 
-                : "text-green-500"
-            }`}>
+            <p
+              className={`text-center text-sm mt-2 ${
+                message.toLowerCase().includes("error")
+                  ? "text-red-500"
+                  : "text-green-500"
+              }`}
+            >
               {message}
             </p>
           )}
         </form>
 
-        {/* Divider */}
-        <div className="relative w-full flex items-center justify-center my-2">
-          <div className="border-t border-gray-200 w-full"></div>
-          <span className="absolute bg-white px-3 text-sm text-gray-500">or</span>
-        </div>
-
-        {/* Sign In Button */}
         <button
           onClick={() => (window.location.href = "/login")}
-          className="bg-white text-gray-900 py-3.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all duration-200 w-full border border-gray-300"
+          className="bg-white text-gray-900 py-3.5 rounded-xl font-medium hover:bg-gray-50 transition-all w-full border border-gray-300"
         >
           Sign In
         </button>
@@ -89,3 +85,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+export const runtime = "nodejs";

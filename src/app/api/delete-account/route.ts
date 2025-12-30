@@ -1,4 +1,3 @@
-// app/api/delete-account/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromToken } from "@/lib/auth";

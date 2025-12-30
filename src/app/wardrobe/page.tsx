@@ -554,37 +554,6 @@ export default function Wardrobe() {
                 </div>
               )}
             </div>
-
-            {/* Stats Card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Wardrobe Stats</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-center">
-                  <div className="text-2xl font-bold text-gray-900">{clothes.length}</div>
-                  <div className="text-sm text-gray-600 mt-1">Total Items</div>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-center">
-                  <div className="text-2xl font-bold text-gray-900">
-                    {clothes.filter(item => item.category.toLowerCase() === 'top').length}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">Tops</div>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-center">
-                  <div className="text-2xl font-bold text-gray-900">
-                    {clothes.filter(item => item.category.toLowerCase() === 'bottom').length}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">Bottoms</div>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-center">
-                  <div className="text-2xl font-bold text-gray-900">
-                    {clothes.filter(item => 
-                      ['shoes', 'accessory'].includes(item.category.toLowerCase())
-                    ).length}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">Accessories</div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
