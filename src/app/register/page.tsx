@@ -4,9 +4,11 @@ import { useState } from "react";
 export default function RegisterPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
+  const [error, setError] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(false);
 
     // Clean and validate before sending
     const cleanedEmail = form.email.trim().toLowerCase();
@@ -24,6 +26,9 @@ export default function RegisterPage() {
 
     const data = await res.json();
     setMessage(data.message || data.error);
+    if (data.error) {
+      setError(true);
+    }
 
     if (res.ok) {
       window.location.href = "/login";
@@ -62,10 +67,11 @@ export default function RegisterPage() {
             Create Account
           </button>
 
+
           {message && (
             <p
               className={`text-center text-sm mt-2 ${
-                message.toLowerCase().includes("error")
+                error
                   ? "text-red-500"
                   : "text-green-500"
               }`}

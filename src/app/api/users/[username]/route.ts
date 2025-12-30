@@ -5,8 +5,12 @@ interface RouteParams {
   params: { username: string };
 }
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ username: string }> } 
+) {
   try {
+    const params = await context.params;
     const { username } = params;
 
     // Remove @ symbol if present (allow both @username and username)
@@ -28,7 +32,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         name: true,
         profilePicture: true,
         createdAt: true,
-        // Include location if you have these fields
         latitude: true,
         longitude: true,
         searchDistance: true,
@@ -43,15 +46,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const clothes = await prisma.clothing.findMany({
       where: { 
         ownerId: user.id,
-        // Optional: filter by status if you have it
-        // status: "ACTIVE",
       },
       include: {
         images: {
           select: {
             url: true,
           },
-          take: 1, // Get first image for thumbnail
+          take: 1,
         },
       },
       orderBy: {
@@ -67,15 +68,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       category: item.category,
       image: item.images[0]?.url || "/placeholder-clothing.jpg",
       createdAt: item.createdAt,
-      // Add more fields if needed
     }));
 
     // Calculate stats
     const stats = {
       itemCount: clothes.length,
-      // You can add more stats here later
-      // matchCount: await getMatchCount(user.id),
-      // likeCount: await getLikeCount(user.id),
     };
 
     return NextResponse.json({ 

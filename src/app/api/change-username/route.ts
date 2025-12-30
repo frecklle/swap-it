@@ -15,23 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Username is required" }, { status: 400 });
     }
 
-    if (!newUsername.startsWith("@")) {
-      return NextResponse.json({ error: "Username must start with @" }, { status: 400 });
-    }
-
     const username = newUsername.slice(1);
-
-    if (username.length < 3) {
-      return NextResponse.json({
-        error: "Username must be at least 3 characters (excluding @)",
-      }, { status: 400 });
-    }
-
-    if (username.length > 20) {
-      return NextResponse.json({
-        error: "Username must be less than 20 characters (excluding @)",
-      }, { status: 400 });
-    }
 
     const usernameRegex = /^[a-zA-Z0-9_]+$/;
     if (!usernameRegex.test(username)) {
@@ -41,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     const existingUser = await prisma.user.findUnique({
-      where: { username: newUsername },
+      where: { username: username.toLowerCase() },
     });
 
     if (existingUser && existingUser.id !== user.id) {
@@ -50,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
-      data: { username: newUsername },
+      data: { username: username.toLowerCase() },
       select: {
         id: true,
         username: true,

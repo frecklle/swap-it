@@ -25,7 +25,6 @@ model User {
   clothes   Clothing[]
   matchesA Match[] @relation("UserMatchesA")
   matchesB Match[] @relation("UserMatchesB")
-  messagesSent Message[] @relation("MessagesSent") // Add relation name here
 
   // Likes sent by this user
   likesSent Like[] @relation("LikesSent") 

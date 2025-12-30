@@ -40,6 +40,8 @@ export async function POST(req: Request) {
 
     // Auto-generate a username if not provided
     username = username?.trim() || `user${Math.floor(Math.random() * 10000)}`;
+    // Normalize username: strip leading @ and lowercase
+    username = username.replace(/^@+/, "").toLowerCase();
 
     // Reject if the username is taken
     const existingUsername = await prisma.user.findUnique({ where: { username } });

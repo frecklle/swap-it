@@ -16,16 +16,20 @@ export default function UsernameChangeModal({
   currentUsername,
   onUsernameChange,
 }: UsernameChangeModalProps) {
-  const [newUsername, setNewUsername] = useState(currentUsername);
+  // keep the visible input without the leading '@' — we show the '@' as a separate span
+  const [newUsername, setNewUsername] = useState(
+    currentUsername ? currentUsername.replace(/^@+/, "") : ""
+  );
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     if (!newUsername.trim()) return;
-    
+
     setLoading(true);
-    const success = await onUsernameChange(newUsername);
+    // Call handler with leading @ to match backend expectations
+    const success = await onUsernameChange("@" + newUsername.trim());
     setLoading(false);
-    
+
     if (success) {
       onClose();
     }
@@ -61,13 +65,11 @@ export default function UsernameChangeModal({
                   type="text"
                   value={newUsername}
                   onChange={(e) => {
-                    let value = e.target.value;
-                    if (!value.startsWith("@")) {
-                      value = "@" + value.replace(/^@+/, "");
-                    }
+                    // keep the internal value free of any leading '@'
+                    const value = e.target.value.replace(/^@+/, "");
                     setNewUsername(value);
                   }}
-                  placeholder="@username"
+                  placeholder="username"
                   className="w-full border border-gray-300 p-3.5 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-white pl-10"
                 />
                 <span className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500">@</span>

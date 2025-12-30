@@ -28,14 +28,15 @@ export async function POST(req: Request) {
 
     // Username
     if (username) {
-      const cleanUsername = username.trim();
-
+      // Normalize: remove leading @ and store lowercase
+      let cleanUsername = username.trim();
       if (!cleanUsername.startsWith("@")) {
         return NextResponse.json(
           { error: "Username must start with @" },
           { status: 400 }
         );
       }
+      cleanUsername = cleanUsername.replace(/^@+/, "").toLowerCase();
 
       const existing = await prisma.user.findUnique({
         where: { username: cleanUsername },

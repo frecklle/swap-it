@@ -197,7 +197,7 @@ export default function ProfilePage() {
     });
     
     if (success) {
-      setUsername(newUsername);
+      setUsername(newUsername.toLowerCase());
     }
     
     return success;

@@ -86,10 +86,8 @@ export default function ProfilePage() {
     setError("");
     
     try {
-      // Clean username (remove @ if present)
-      const cleanUsername = username.startsWith('@') ? username : `@${username}`;
       
-      const res = await fetch(`/api/users/${cleanUsername}`);
+      const res = await fetch(`/api/users/${username}`);
       const data = await res.json();
 
       if (res.ok) {
