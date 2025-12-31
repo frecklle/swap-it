@@ -160,7 +160,7 @@ export default function SettingsPage() {
 
   const handleEmailChange = async (newEmail: string) => {
     try {
-      const res = await fetch("/api/user/change-email", {
+      const res = await fetch("/api/change-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -190,7 +190,7 @@ export default function SettingsPage() {
     confirmPassword: string;
   }) => {
     try {
-      const res = await fetch("/api/user/change-password", {
+      const res = await fetch("/api/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
