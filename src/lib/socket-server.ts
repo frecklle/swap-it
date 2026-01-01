@@ -6,12 +6,12 @@ let io: Server | null = null;
 export function initSocket(server: any) {
   io = new Server(server, {
     cors: {
-      origin: process.env.NODE_ENV === 'development' 
-        ? 'http://localhost:3000' 
-        : process.env.NEXT_PUBLIC_APP_URL,
-      credentials: true,
-    },
-    path: '/api/socket/io',
+  origin: process.env.NODE_ENV === 'production'
+    ? ["https://your-vercel-domain.vercel.app"]
+    : "http://localhost:3000",
+  methods: ["GET", "POST"],
+  credentials: true,
+}
   });
 
   io.on('connection', (socket) => {

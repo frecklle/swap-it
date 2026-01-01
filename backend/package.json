@@ -1,0 +1,17 @@
+{
+  "name": "swap-it-backend",
+  "type": "module",
+  "scripts": {
+    "start": "node socket-server.mjs",
+    "migrate": "npx prisma migrate deploy || npx prisma db push"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.17.0",
+    "dotenv": "^17.2.3",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.6" 
+  },
+  "devDependencies": {
+    "prisma": "^6.17.0"
+  }
+}

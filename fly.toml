@@ -1,0 +1,25 @@
+app = "swap-it"
+primary_region = "ams"
+
+[build]
+
+[processes]
+  app = "sh /app/entrypoint.sh"
+
+[[mounts]]
+  source = "data"
+  destination = "/app/data"
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = "1GB"
+  auto_extend_size_limit = "10GB"
+
+# Services section (required)
+[[services]]
+  processes = ["app"]
+  internal_port = 3000
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+  [[services.ports]]
+    port = 443

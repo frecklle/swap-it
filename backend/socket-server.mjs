@@ -92,15 +92,9 @@ io.on('connection', (socket) => {
 });
 
 // Start server on port 3001
-const PORT = 3001;
-httpServer.listen(PORT, () => {
-  console.log(`
-╔═══════════════════════════════════════════╗
-║  🚀 Socket.IO Server running!             ║
-║  📍 Port: ${PORT}                             ║
-║  🔌 Ready for connections                 ║
-╚═══════════════════════════════════════════╝
-  `);
+const PORT = process.env.PORT || 3001;
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Socket.IO server running on port ${PORT}`);
 });
 
 // Handle graceful shutdown
