@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: dockerfile
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-file:./data/dev.db}
+    ports:
+      - "3000:3000" # Next.js
+      - "3001:3001" # socket server
+    volumes:
+      - ./data:/app/data   # persist sqlite file(s) -> container path /app/data
+    restart: unless-stopped

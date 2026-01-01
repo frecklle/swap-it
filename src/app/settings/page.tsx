@@ -265,14 +265,14 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       <MatchesSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onMatchClick={(match) => setSelectedMatch(match)}
       />
       
-      <div className="flex-1 flex flex-col relative">
+      <div className="ml-90 flex flex-col relative">
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         
         {sidebarOpen && (

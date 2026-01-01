@@ -376,9 +376,9 @@ export default function MatchesSidebar({
   };
 
   return (
-    <div className="w-90 bg-white border-r border-gray-200 flex flex-col mt-20">
+    <div className="fixed left-0 top-20 w-90 h-[calc(100vh-5rem)] bg-white border-r border-gray-200 flex flex-col z-10">
       {/* Tab Buttons */}
-      <div className="flex gap-2 p-2 w-full">
+      <div className="flex gap-2 p-2 w-full bg-white border-b border-gray-200">
         <button
           className={`flex-1 rounded-xl p-4 text-center transition-all duration-200 border-2 ${
             activeTab === "matches"
@@ -431,7 +431,8 @@ export default function MatchesSidebar({
                 return (
                   <div 
                     key={`${group.otherUserId}-${groupIndex}`} 
-                    className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-sm transition-shadow"
+                    className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-sm transition-shadow cursor-pointer hover:border-gray-300"
+                    onClick={() => handleGroupClick(groupIndex, group.selectedMatchIndex)}
                   >
                     <div className="p-3">
                       <div className="flex items-center justify-between mb-2">
@@ -461,7 +462,10 @@ export default function MatchesSidebar({
                           </div>
                         </div>
                         <button
-                          onClick={() => handleGroupClick(groupIndex, group.selectedMatchIndex)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleGroupClick(groupIndex, group.selectedMatchIndex);
+                          }}
                           className="bg-black text-white p-1.5 rounded-full hover:bg-gray-800 transition-colors flex-shrink-0 ml-1"
                           title="Open chat"
                         >
@@ -488,7 +492,10 @@ export default function MatchesSidebar({
                       {group.matches.length > 1 && (
                         <div>
                           <button
-                            onClick={() => toggleGroup(groupIndex)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleGroup(groupIndex);
+                            }}
                             className="w-full text-xs text-gray-600 hover:text-gray-900 flex items-center justify-between"
                           >
                             <span>
@@ -522,7 +529,10 @@ export default function MatchesSidebar({
                                   return (
                                     <button
                                       key={`${match.id}-${matchIndex}`}
-                                      onClick={() => handleGroupClick(groupIndex, matchIndex)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleGroupClick(groupIndex, matchIndex);
+                                      }}
                                       className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 text-left"
                                     >
                                       <div className="w-8 h-8 rounded overflow-hidden bg-gray-100 flex-shrink-0">

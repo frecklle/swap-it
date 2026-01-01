@@ -218,13 +218,13 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50">
         <MatchesSidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onMatchClick={(match) => setSelectedMatch(match)}
         />
-        <div className="flex-1 flex flex-col relative bg-gray-50">
+        <div className="ml-90 flex flex-col relative bg-gray-50">
           <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
           <div className="flex items-center justify-center mt-20">
             <div className="flex flex-col items-center gap-4">
@@ -239,13 +239,13 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50">
         <MatchesSidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onMatchClick={(match) => setSelectedMatch(match)}
         />
-        <div className="flex-1 flex flex-col relative bg-gray-50">
+        <div className="ml-90 flex flex-col relative bg-gray-50">
           <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
           <div className="flex items-center justify-center mt-20">
             <div className="text-center p-8">
@@ -265,14 +265,14 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       <MatchesSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onMatchClick={(match) => setSelectedMatch(match)}
       />
 
-      <div className="flex-1 flex flex-col relative">
+      <div className="ml-90 flex flex-col relative">
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         {sidebarOpen && (

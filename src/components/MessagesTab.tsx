@@ -188,7 +188,7 @@ export default function MessagesTab({
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <span className="text-xl font-bold text-gray-600">
-                          {(chat.otherUser.name || chat.otherUser.username).charAt(0).toUpperCase()}
+                          {(chat.otherUser.name || chat.otherUser.username).charAt(1).toUpperCase()}
                         </span>
                       </div>
                     )}

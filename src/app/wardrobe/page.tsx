@@ -257,13 +257,13 @@ export default function Wardrobe() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50">
         <MatchesSidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onMatchClick={(match) => setSelectedMatch(match)}
         />
-        <div className="flex-1 flex flex-col relative bg-gray-50">
+        <div className="ml-90 flex flex-col relative bg-gray-50">
           <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
           <div className="flex items-center justify-center mt-20">
             <div className="flex flex-col items-center gap-4">
@@ -277,7 +277,7 @@ export default function Wardrobe() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       {message && (
         <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg max-w-md w-full mx-4 flex items-center justify-between ${
           message.type === "success" 
@@ -300,7 +300,7 @@ export default function Wardrobe() {
         onMatchClick={(match) => setSelectedMatch(match)}
       />
 
-      <div className="flex-1 flex flex-col relative">
+      <div className="ml-90 flex flex-col relative">
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         {sidebarOpen && (
