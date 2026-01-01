@@ -17,7 +17,7 @@ const httpServer = http.createServer();
 // Initialize Socket.IO
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "*", // Allow all origins for production
     methods: ["GET", "POST"],
     credentials: true,
   },

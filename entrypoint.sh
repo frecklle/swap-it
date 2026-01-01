@@ -9,7 +9,5 @@ if [ -n "$DATABASE_URL" ]; then
   npx prisma migrate deploy || npx prisma db push
 fi
 
-# start socket server in background then start Next
-node socket-server.mjs &
-
+# start Next.js app
 exec npm run start -- -p 3000
