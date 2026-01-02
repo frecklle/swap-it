@@ -312,7 +312,7 @@ export default function HomePage() {
         refreshMatches={refreshMatches}
       />
 
-      <div className="ml-90 flex flex-col relative bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      <div className="ml-90 flex flex-col relative bg-gradient-to-br from-gray-50 via-white to-gray-100 min-h-screen">
         {/* Fixed Search Button in Top Right (Always visible) */}
         <button
           onClick={toggleSearch}
@@ -404,7 +404,7 @@ export default function HomePage() {
           </>
         )}
 
-        <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0">
           {error ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
               <div className="text-6xl mb-4">📍</div>
@@ -413,7 +413,7 @@ export default function HomePage() {
               </h3>
               <p className="text-gray-600 mb-4 max-w-md">{error}</p>
               <button
-                onClick={() => setSidebarOpen(true)}
+                onClick={() => (window.location.href = "/settings")}
                 className="px-6 py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition-all font-medium"
               >
                 Go to Settings
@@ -431,7 +431,7 @@ export default function HomePage() {
               <p className="mt-2 text-sm text-gray-400">Finding items you'll love</p>
             </div>
           ) : item ? (
-            <div className="flex flex-col items-center gap-8 w-full relative">
+            <div className="flex flex-col items-center justify-center gap-8 w-full h-full relative">
               <ClothingCard
                 item={item}
                 controls={controls}

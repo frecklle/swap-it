@@ -205,7 +205,7 @@ export default function PasswordChangeModal({
           </div>
           
           <div>
-            <label className="text-sm font-medium text-gray-900 mb-1 block">
+            <label className="text-sm font-medium text-black mb-1 block">
               Confirm New Password
             </label>
             <input

@@ -90,7 +90,7 @@ export default function EmailChangeModal({
                 setError(null);
               }}
               placeholder="Enter new email address"
-              className="w-full border border-gray-300 p-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-gray-300 p-3 rounded-xl text-black text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               disabled={loading}
             />
           </div>

@@ -7,7 +7,7 @@ export function initSocket(server: any) {
   io = new Server(server, {
     cors: {
   origin: process.env.NODE_ENV === 'production'
-    ? ["https://your-vercel-domain.vercel.app"]
+    ? ["https://swap-it-peach.vercel.app"]
     : "http://localhost:3000",
   methods: ["GET", "POST"],
   credentials: true,
