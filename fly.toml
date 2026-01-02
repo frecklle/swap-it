@@ -1,11 +1,11 @@
-app = "swap-it"
+app = "swap-it-socket"
 primary_region = "ams"
 
 [build]
-  dockerfile = "dockerfile"
+  dockerfile = "socket.dockerfile"
 
 [processes]
-  app = "npm start"
+  app = "npm run socket"
 
 [[mounts]]
   source = "data"
@@ -15,7 +15,7 @@ primary_region = "ams"
   auto_extend_size_limit = "10GB"
 
 [[services]]
-  internal_port = 3000
+  internal_port = 3001
   protocol = "tcp"
   processes = ["app"]
 

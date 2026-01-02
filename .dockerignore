@@ -1,0 +1,46 @@
+# flyctl launch added from swap-it\.gitignore
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+swap-it\node_modules
+swap-it\.pnp
+swap-it\**\.pnp.*
+swap-it\**\.yarn\*
+!swap-it\**\.yarn\patches
+!swap-it\**\.yarn\plugins
+!swap-it\**\.yarn\releases
+!swap-it\**\.yarn\versions
+
+# testing
+swap-it\coverage
+
+# next.js
+swap-it\.next
+swap-it\out
+
+# production
+swap-it\build
+
+# misc
+swap-it\**\.DS_Store
+swap-it\**\*.pem
+
+# debug
+swap-it\**\npm-debug.log*
+swap-it\**\yarn-debug.log*
+swap-it\**\yarn-error.log*
+swap-it\**\.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+swap-it\**\.env*
+
+# vercel
+swap-it\**\.vercel
+
+# typescript
+swap-it\**\*.tsbuildinfo
+swap-it\**\next-env.d.ts
+
+swap-it\src\generated\prisma
+swap-it\**\.env*.local
+fly.toml
