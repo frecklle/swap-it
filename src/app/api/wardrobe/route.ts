@@ -29,13 +29,13 @@ export async function POST(req: NextRequest) {
 
     // Create the clothing item first
     const newClothing = await prisma.clothing.create({
-      data: {
-        name: name.trim(),
-        description: description?.trim() || null,
-        category,
-        ownerId: user.id,
-      },
-    });
+  data: {
+    name: name.trim(),
+    description: description?.trim() || null,
+    category,
+    owner: { connect: { id: user.id } },
+  },
+});
 
     // Then create images associated with the clothing item
     const images = await Promise.all(
