@@ -9,7 +9,8 @@ import MatchesSidebar from "@/components/MatchesSidebar";
 import ClothingCard from "@/components/ClothingCard";
 import ActionButtons from "@/components/ActionButtons";
 import ClothingInfoModal from "@/components/ClothingInfoModal";
-import { Sparkles, Search, X } from "lucide-react";
+import FilterBar from "@/components/FilterBar";
+import { Sparkles, Search, X, MapPin, Award, SlidersHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface ClothingImage {
@@ -26,6 +27,7 @@ interface User {
   profilePicture?: string;
   latitude?: number | null;
   longitude?: number | null;
+  searchDistance?: number;
 }
 
 interface Clothing {
@@ -33,10 +35,13 @@ interface Clothing {
   name: string;
   description?: string;
   category: string;
+  size: string | null;
+  condition: string | null;
   ownerId: number;
   createdAt: string;
   images: ClothingImage[];
   owner?: User;
+  distance?: number;
 }
 
 export interface Match {
@@ -67,6 +72,13 @@ export default function HomePage() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [filters, setFilters] = useState({
+    category: "all",
+    condition: "all",
+    sortBy: "recency",
+  });
+  const [userData, setUserData] = useState<User | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const controls = useAnimation();
@@ -83,7 +95,7 @@ export default function HomePage() {
         console.error("Error parsing liked items:", e);
       }
     }
-    fetchClothes();
+    fetchUserData();
   }, []);
 
   // Close search when clicking outside
@@ -107,11 +119,38 @@ export default function HomePage() {
     };
   }, [showSearch]);
 
+  // Fetch user data
+  const fetchUserData = async () => {
+    try {
+      const res = await fetch("/api/user/me", {
+        credentials: "include",
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setUserData(data.user);
+        fetchClothes();
+      } else if (res.status === 401) {
+        localStorage.removeItem("auth_token");
+        window.location.href = "/welcome";
+      }
+    } catch (err) {
+      console.error("Failed to fetch user data:", err);
+    }
+  };
+
   const fetchClothes = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/clothes", {
+      // Build query string with filters
+      const params = new URLSearchParams({
+        category: filters.category,
+        condition: filters.condition,
+        sortBy: filters.sortBy,
+      });
+
+      const res = await fetch(`/api/clothes?${params}`, {
         credentials: "include",
       });
 
@@ -132,9 +171,8 @@ export default function HomePage() {
       
       const data: Clothing[] = await res.json();
       
-      const filteredClothes = data.filter((c) => 
-        c.images?.length > 0 && !likedClothingIds.has(c.id)
-      );
+      // Filter out already liked items
+      const filteredClothes = data.filter((c) => !likedClothingIds.has(c.id));
       
       setClothes(filteredClothes);
       setCurrentIndex(0);
@@ -150,6 +188,13 @@ export default function HomePage() {
     }
   };
 
+  // Fetch clothes when filters change
+  useEffect(() => {
+    if (userData) {
+      fetchClothes();
+    }
+  }, [filters, userData]);
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
@@ -158,7 +203,6 @@ export default function HomePage() {
     setSearchError(null);
     
     try {
-      // First, verify the user exists
       const res = await fetch(`/api/users/${username}/exists`, {
         credentials: "include",
       });
@@ -166,7 +210,6 @@ export default function HomePage() {
       if (res.ok) {
         const data = await res.json();
         if (data.exists) {
-          // User exists, redirect to their profile
           router.push(`/profile/${username}`);
           setSearchQuery("");
           setShowSearch(false);
@@ -202,11 +245,14 @@ export default function HomePage() {
     setSearchError(null);
     
     if (!showSearch) {
-      // Focus the input when opening search
       setTimeout(() => {
         searchInputRef.current?.focus();
       }, 100);
     }
+  };
+
+  const toggleFilters = () => {
+    setShowFilters(!showFilters);
   };
 
   const markAsLiked = (clothingId: number) => {
@@ -303,6 +349,34 @@ export default function HomePage() {
     e.currentTarget.onerror = null;
   };
 
+  const handleFilterChange = (newFilters: typeof filters) => {
+    setFilters(newFilters);
+    setCurrentIndex(0);
+  };
+
+  const activeFilterCount = [
+    filters.category !== "all",
+    filters.condition !== "all",
+    filters.sortBy !== "recency",
+  ].filter(Boolean).length;
+
+  const getConditionColor = (condition: string | null) => {
+    if (!condition) return "bg-gray-100/90 text-gray-800 border-gray-200";
+    
+    switch (condition.toLowerCase()) {
+      case "new":
+        return "bg-green-100/90 text-green-800 border-green-200";
+      case "like new":
+        return "bg-blue-100/90 text-blue-800 border-blue-200";
+      case "good":
+        return "bg-yellow-100/90 text-yellow-800 border-yellow-200";
+      case "fair":
+        return "bg-orange-100/90 text-orange-800 border-orange-200";
+      default:
+        return "bg-gray-100/90 text-gray-800 border-gray-200";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <MatchesSidebar
@@ -313,14 +387,39 @@ export default function HomePage() {
       />
 
       <div className="ml-90 flex flex-col relative bg-gradient-to-br from-gray-50 via-white to-gray-100 min-h-screen">
-        {/* Fixed Search Button in Top Right (Always visible) */}
-        <button
-          onClick={toggleSearch}
-          className="fixed top-4 right-4 z-40 p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-all duration-200 hover:scale-110 active:scale-95 shadow-xl"
-          title="Search users"
-        >
-          <Search className="w-5 h-5" />
-        </button>
+        {/* Fixed Action Buttons in Top Right */}
+        <div className="fixed top-4 right-4 z-40 flex items-center gap-3">
+          {/* Search Button */}
+          <button
+            onClick={toggleSearch}
+            className="p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-all duration-200 hover:scale-110 active:scale-95 shadow-xl"
+            title="Search users"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+
+          {/* Filter Button */}
+          <button
+            onClick={toggleFilters}
+            className="p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-all duration-200 hover:scale-110 active:scale-95 shadow-xl relative"
+            title="Filter items"
+          >
+            <SlidersHorizontal className="w-5 h-5" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Filter Bar Component */}
+        <FilterBar
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          isOpen={showFilters}
+          onClose={() => setShowFilters(false)}
+        />
 
         {/* Compact Search Bar */}
         {showSearch && (
@@ -382,7 +481,6 @@ export default function HomePage() {
                 </motion.div>
               )}
               
-              {/* Search tips */}
               <div className="mt-2 pt-2 border-t border-gray-100">
                 <p className="text-xs text-gray-500">
                   Enter a username and press Enter to search
@@ -427,11 +525,35 @@ export default function HomePage() {
                   <Sparkles className="w-8 h-8 text-black animate-pulse" />
                 </div>
               </div>
-              <p className="mt-6 text-gray-600 font-medium">Curating your perfect matches...</p>
-              <p className="mt-2 text-sm text-gray-400">Finding items you'll love</p>
+              <p className="mt-6 text-gray-600 font-medium">
+                {activeFilterCount > 0 
+                  ? "Finding items matching your filters..."
+                  : "Curating your perfect matches..."}
+              </p>
+              <p className="mt-2 text-sm text-gray-400">
+                {activeFilterCount > 0 
+                  ? `${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} applied`
+                  : "Finding items you'll love"}
+              </p>
             </div>
           ) : item ? (
             <div className="flex flex-col items-center justify-center gap-8 w-full h-full relative">
+              {/* Distance badge on card */}
+              {item.distance !== undefined && (
+                <div className="absolute top-4 left-4 z-20 bg-black/75 text-white px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 backdrop-blur-sm">
+                  <MapPin className="w-3.5 h-3.5" />
+                  {item.distance.toFixed(1)} km away
+                </div>
+              )}
+
+              {/* Condition badge on card */}
+              {item.condition && (
+                <div className={`absolute top-4 right-4 z-20 px-3 py-1.5 rounded-full text-sm font-medium backdrop-blur-sm border flex items-center gap-1.5 ${getConditionColor(item.condition)}`}>
+                  <Award className="w-3.5 h-3.5" />
+                  {item.condition}
+                </div>
+              )}
+
               <ClothingCard
                 item={item}
                 controls={controls}
@@ -453,17 +575,31 @@ export default function HomePage() {
                 transition={{ repeat: Infinity, duration: 2 }}
                 className="text-7xl mb-6"
               >
-                🔄
+                🔍
               </motion.div>
               <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                No More Items Found
+                No Items Found
               </h3>
               <p className="text-gray-400 max-w-md mb-4">
-                You've seen all available items in your area. Try adjusting your search distance or check back later!
+                {activeFilterCount > 0 
+                  ? "No items match your current filters. Try adjusting them!"
+                  : "You've seen all available items in your area. Try adjusting your search distance in settings or check back later!"}
               </p>
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={() => handleFilterChange({
+                    category: "all",
+                    condition: "all",
+                    sortBy: "recency",
+                  })}
+                  className="mt-2 px-6 py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition-all font-medium"
+                >
+                  Clear All Filters
+                </button>
+              )}
               <button
-                onClick={fetchClothes}
-                className="mt-2 px-6 py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition-all font-medium flex items-center gap-2"
+                onClick={() => fetchClothes()}
+                className="mt-4 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium flex items-center gap-2"
               >
                 <Sparkles size={16} />
                 Refresh Items

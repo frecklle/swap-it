@@ -35,9 +35,12 @@ model Clothing {
   name        String
   description String?
   category    String
+  size        String?   // Add this line
+  condition   String?   // Add this line
   owner       User     @relation(fields: [ownerId], references: [id])
   ownerId     Int
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   images      ClothingImage[]
 

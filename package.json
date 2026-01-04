@@ -12,7 +12,8 @@
     "start": "next start",
     "start:prod": "concurrently \"node socket-server.mjs\" \"next start -p 3000\"",
     "socket": "node socket-server.mjs",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "predev": "npm run prisma:generate"
   },
   "dependencies": {
     "@prisma/client": "^6.17.0",

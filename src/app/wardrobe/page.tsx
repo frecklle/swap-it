@@ -14,6 +14,8 @@ export default function Wardrobe() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Top");
+  const [size, setSize] = useState(""); // Added this
+  const [condition, setCondition] = useState(""); // Added this
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   const [clothes, setClothes] = useState<Clothing[]>([]);
@@ -185,6 +187,8 @@ export default function Wardrobe() {
           name: name.trim(),
           description: description.trim() || null,
           category,
+          size: size.trim() || null,        // Added this
+          condition: condition || null,      // Added this
           imageUrls: imageUrls,
           ownerId: userId,
         }),
@@ -196,6 +200,8 @@ export default function Wardrobe() {
         setName("");
         setDescription("");
         setCategory("Top");
+        setSize("");        // Added this
+        setCondition("");   // Added this
         setImageUrls([]);
         setActiveWardrobeTab("view");
         showMessage("success", "Item added successfully!");
@@ -237,6 +243,23 @@ export default function Wardrobe() {
       case "shoes": return "bg-purple-100 text-purple-700 border-purple-200";
       case "accessory": return "bg-orange-100 text-orange-700 border-orange-200";
       default: return "bg-gray-100 text-gray-700 border-gray-200";
+    }
+  };
+
+  const getConditionColor = (condition: string | null) => {
+    if (!condition) return "bg-gray-100 text-gray-700 border-gray-200";
+    
+    switch (condition.toLowerCase()) {
+      case "new":
+        return "bg-green-100 text-green-700 border-green-200";
+      case "like new":
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case "good":
+        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      case "fair":
+        return "bg-orange-100 text-orange-700 border-orange-200";
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
 
@@ -377,18 +400,49 @@ export default function Wardrobe() {
                     />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-gray-900">Category *</label>
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="border border-gray-300 p-3.5 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-gray-50"
+                      >
+                        <option value="Top">👕 Top</option>
+                        <option value="Bottom">👖 Bottom</option>
+                        <option value="Shoes">👟 Shoes</option>
+                        <option value="Accessory">🕶️ Accessory</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-gray-900">Size (optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., M, 10, 42"
+                        value={size}
+                        onChange={(e) => setSize(e.target.value)}
+                        className="border border-gray-300 p-3.5 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 placeholder-gray-500 bg-gray-50"
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium text-gray-900">Category *</label>
+                    <label className="text-sm font-medium text-gray-900">Condition (optional)</label>
                     <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
+                      value={condition}
+                      onChange={(e) => setCondition(e.target.value)}
                       className="border border-gray-300 p-3.5 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-gray-50"
                     >
-                      <option value="Top">👕 Top</option>
-                      <option value="Bottom">👖 Bottom</option>
-                      <option value="Shoes">👟 Shoes</option>
-                      <option value="Accessory">🕶️ Accessory</option>
+                      <option value="">Select condition</option>
+                      <option value="New">New</option>
+                      <option value="Like New">Like New</option>
+                      <option value="Good">Good</option>
+                      <option value="Fair">Fair</option>
                     </select>
+                    <p className="text-xs text-gray-500">
+                      Help others understand the item's condition
+                    </p>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -510,10 +564,20 @@ export default function Wardrobe() {
                               <div className="flex items-start justify-between">
                                 <div>
                                   <h3 className="font-semibold text-gray-900 text-lg truncate">{item.name}</h3>
-                                  <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex flex-wrap items-center gap-2 mt-1">
                                     <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getCategoryColor(item.category)}`}>
                                       {getCategoryIcon(item.category)} {item.category}
                                     </span>
+                                    {item.size && (
+                                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                        Size: {item.size}
+                                      </span>
+                                    )}
+                                    {item.condition && (
+                                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getConditionColor(item.condition)}`}>
+                                        {item.condition}
+                                      </span>
+                                    )}
                                     {item.images && item.images.length > 0 && (
                                       <span className="text-xs text-gray-500">
                                         {item.images.length} photo(s)

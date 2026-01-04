@@ -30,19 +30,37 @@ export async function GET(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // Get query parameters
+    const { searchParams } = new URL(req.url);
+    const category = searchParams.get("category") || "all";
+    const condition = searchParams.get("condition") || "all";
+    const sortBy = searchParams.get("sortBy") || "recency";
+
     const userLat = user.latitude;
     const userLon = user.longitude;
+    const userSearchDistance = user.searchDistance !== null && user.searchDistance !== undefined 
+      ? user.searchDistance 
+      : 50; // Default 50km
 
-    // Fetch clothes excluding user's own and already liked/matched
+    // Build where clause
+    const whereClause: any = {
+      ownerId: { not: user.id },
+      images: { some: {} }, // Only items with images
+    };
+
+    // Add category filter
+    if (category !== "all") {
+      whereClause.category = category;
+    }
+
+    // Add condition filter
+    if (condition !== "all") {
+      whereClause.condition = condition;
+    }
+
+    // Fetch clothes with filters
     const clothes = await prisma.clothing.findMany({
-      where: {
-        ownerId: { not: user.id },
-        likesReceived: { none: { fromUserId: user.id } },
-        OR: [
-          { matchesA: { none: { OR: [{ userAId: user.id }, { userBId: user.id }] } } },
-          { matchesB: { none: { OR: [{ userAId: user.id }, { userBId: user.id }] } } },
-        ],
-      },
+      where: whereClause,
       include: {
         images: true,
         owner: { 
@@ -58,19 +76,45 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Filter clothes by distance
-    const filteredClothes = clothes.filter((c) => {
-      const owner = c.owner;
-      if (!owner || owner.latitude == null || owner.longitude == null) return false;
-      const distanceKm = getDistanceFromLatLonInKm(userLat, userLon, owner.latitude, owner.longitude);
-      // Use searchDistance if set, otherwise default to 50km
-      const maxDistance = user.searchDistance !== null && user.searchDistance !== undefined 
-        ? user.searchDistance 
-        : 50; // Default 50km
-      return maxDistance === -1 || distanceKm <= maxDistance;
-    });
+    // Filter clothes by user's search distance
+    const filteredClothes = clothes
+      .map((c) => {
+        const owner = c.owner;
+        if (!owner || owner.latitude == null || owner.longitude == null) {
+          return { ...c, distance: null };
+        }
+        
+        const distanceKm = getDistanceFromLatLonInKm(userLat, userLon, owner.latitude, owner.longitude);
+        return { ...c, distance: distanceKm };
+      })
+      .filter((c) => {
+        // Check if within user's search distance
+        if (c.distance === null) return false;
+        return userSearchDistance === -1 || c.distance <= userSearchDistance;
+      });
 
-    return NextResponse.json(filteredClothes);
+    // Apply sorting
+    let sortedClothes = [...filteredClothes];
+    
+    if (sortBy === "distance") {
+      sortedClothes.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
+    } else if (sortBy === "condition") {
+      // Define condition priority
+      const conditionOrder: Record<string, number> = { 
+        "New": 1, 
+        "Like New": 2, 
+        "Good": 3, 
+        "Fair": 4 
+      };
+      
+      sortedClothes.sort((a, b) => {
+        const aPriority = conditionOrder[a.condition || ""] || 5;
+        const bPriority = conditionOrder[b.condition || ""] || 5;
+        return aPriority - bPriority;
+      });
+    }
+
+    return NextResponse.json(sortedClothes);
   } catch (err) {
     console.error("Error fetching clothes:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
