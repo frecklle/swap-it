@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { X, Send, ArrowRightLeft } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 
+const NEXT_PUBLIC_SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+
 interface Message {
   id: number | string;
   content: string;
@@ -125,7 +127,7 @@ export default function FloatingChat({ matchId, onClose }: FloatingChatProps) {
   useEffect(() => {
     if (!currentUserId || !matchId) return;
 
-    const socket = io("http://localhost:3001", {
+    const socket = io(NEXT_PUBLIC_SOCKET_URL, {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
