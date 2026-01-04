@@ -9,7 +9,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ✅ Check if user has location
     if (user.latitude == null || user.longitude == null) {
       return NextResponse.json(
         { error: "Set your location before liking clothes" },
@@ -55,43 +54,61 @@ export async function POST(req: Request) {
       },
     });
 
-    // check mutual like
+    // check mutual like - find if the other user has liked any of your clothing items
     const mutualLike = await prisma.like.findFirst({
       where: {
-        fromUserId: clothing.ownerId,
-        toClothing: { ownerId: userId },
+        fromUserId: clothing.ownerId, // The other user
+        toClothing: { 
+          ownerId: userId, // Your clothing items
+        },
       },
       include: { toClothing: true },
       orderBy: { createdAt: "desc" },
     });
 
     if (mutualLike) {
+      // Check if match already exists between these users
       const existingMatch = await prisma.match.findFirst({
         where: {
           OR: [
-            { userAId: userId, userBId: clothing.ownerId, clothingAId: mutualLike.toClothingId, clothingBId: clothingId },
-            { userAId: clothing.ownerId, userBId: userId, clothingAId: clothingId, clothingBId: mutualLike.toClothingId },
+            { userAId: userId, userBId: clothing.ownerId },
+            { userAId: clothing.ownerId, userBId: userId },
           ],
         },
       });
 
-      if (!existingMatch) {
+      if (!existingMatch && mutualLike.toClothing) {
+        // Create a new match with both clothing items
         await prisma.match.create({
           data: {
             userAId: userId,
             userBId: clothing.ownerId,
-            clothingAId: mutualLike.toClothingId,
-            clothingBId: clothingId,
+            clothingAId: mutualLike.toClothingId, // The clothing item the other user liked
+            clothingBId: clothingId, // The clothing item you just liked
           },
+        });
+
+        return NextResponse.json({ 
+          message: "Matched!", 
+          matched: true,
+          matchId: clothingId // You might want to return the actual match ID
         });
       }
 
-      return NextResponse.json({ message: "Matched!" });
+      return NextResponse.json({ 
+        message: "Already matched!", 
+        matched: true 
+      });
     }
 
-    return NextResponse.json({ message: "Liked!" });
+    return NextResponse.json({ 
+      message: "Liked!", 
+      matched: false 
+    });
   } catch (err) {
     console.error("Like route error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ 
+      error: "Internal server error" 
+    }, { status: 500 });
   }
 }
