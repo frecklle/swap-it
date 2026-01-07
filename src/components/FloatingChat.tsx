@@ -43,6 +43,18 @@ interface Match {
   createdAt: string;
 }
 
+interface TradeOffer {
+  id: number;
+  matchId: number;
+  fromUserId: number;
+  toUserId: number;
+  clothingFromId: number;
+  clothingToId: number;
+  status: "PENDING" | "ACCEPTED" | "DECLINED";
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface FloatingChatProps {
   matchId: number;
   onClose: () => void;
@@ -58,6 +70,8 @@ export default function FloatingChat({ matchId, onClose }: FloatingChatProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [socketError, setSocketError] = useState<string | null>(null);
+  const [tradeOffer, setTradeOffer] = useState<TradeOffer | null>(null);
+  const [isProcessingTrade, setIsProcessingTrade] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -109,6 +123,22 @@ export default function FloatingChat({ matchId, onClose }: FloatingChatProps) {
         
         const messagesData = await messagesRes.json();
         setMessages(messagesData);
+        
+        // Fetch trade offers for this match
+        try {
+          const tradeRes = await fetch(`/api/matches/${matchId}/trade-offers`, {
+            credentials: "include",
+          });
+          
+          if (tradeRes.ok) {
+            const tradeData = await tradeRes.json();
+            // Get the most recent trade offer (PENDING, ACCEPTED, or DECLINED)
+            const latestOffer = tradeData[0]; // Already sorted by createdAt desc
+            setTradeOffer(latestOffer || null);
+          }
+        } catch (err) {
+          console.error("Error fetching trade offers:", err);
+        }
         
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -307,20 +337,78 @@ export default function FloatingChat({ matchId, onClose }: FloatingChatProps) {
   const otherUser = getOtherUser();
   const otherClothing = getOtherClothing();
   const myClothing = getMyClothing();
-const finalizeTrade = async () => {
-  if (!myClothing || !otherClothing) return;
+  const finalizeTrade = async () => {
+    if (!myClothing || !otherClothing) return;
 
-  await fetch("/api/trade", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      matchId,
-      clothingFromId: myClothing.id,
-      clothingToId: otherClothing.id,
-    }),
-  });
-};
+    const res = await fetch("/api/trade", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        matchId,
+        clothingFromId: myClothing.id,
+        clothingToId: otherClothing.id,
+      }),
+    });
+    
+    if (res.ok) {
+      const newOffer = await res.json();
+      setTradeOffer(newOffer);
+    } else {
+      throw new Error("Failed to create trade offer");
+    }
+  };
+
+  const acceptTrade = async () => {
+    if (!tradeOffer) return;
+    setIsProcessingTrade(true);
+    
+    try {
+      const res = await fetch("/api/trade/accept", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tradeId: tradeOffer.id }),
+      });
+      
+      if (res.ok) {
+        setTradeOffer({ ...tradeOffer, status: "ACCEPTED" });
+        alert("Trade accepted! Items have been marked as traded.");
+      } else {
+        throw new Error("Failed to accept trade");
+      }
+    } catch (error) {
+      console.error("Failed to accept trade:", error);
+      alert("Failed to accept trade. Please try again.");
+    } finally {
+      setIsProcessingTrade(false);
+    }
+  };
+
+  const declineTrade = async () => {
+    if (!tradeOffer) return;
+    setIsProcessingTrade(true);
+    
+    try {
+      const res = await fetch("/api/trade/decline", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tradeId: tradeOffer.id }),
+      });
+      
+      if (res.ok) {
+        setTradeOffer({ ...tradeOffer, status: "DECLINED" });
+      } else {
+        throw new Error("Failed to decline trade");
+      }
+    } catch (error) {
+      console.error("Failed to decline trade:", error);
+      alert("Failed to decline trade. Please try again.");
+    } finally {
+      setIsProcessingTrade(false);
+    }
+  };
 
 
   if (isLoading || !match) {
@@ -551,20 +639,126 @@ const finalizeTrade = async () => {
               </div>
             </div>
 
-            {/* Finalize Trade Button */}
+            {/* Trade Action Buttons */}
             <div className="mt-4 p-3 border-t border-gray-200">
-              <button
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg"
-                onClick={() => {
-                  // TODO: Add trade finalization logic
-                  alert("Trade finalization feature coming soon!");
-                }}
-              >
-                Finalize Trade
-              </button>
-              <p className="text-xs text-gray-500 text-center mt-2">
-                Mark this trade as completed
-              </p>
+              {!tradeOffer && (
+                <>
+                  <button
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={async () => {
+                      setIsProcessingTrade(true);
+                      try {
+                        await finalizeTrade();
+                        alert("Trade offer sent successfully!");
+                      } catch (error) {
+                        console.error("Failed to send trade offer:", error);
+                        alert("Failed to send trade offer. Please try again.");
+                      } finally {
+                        setIsProcessingTrade(false);
+                      }
+                    }}
+                    disabled={isProcessingTrade}
+                  >
+                    {isProcessingTrade ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Sending...</span>
+                      </div>
+                    ) : (
+                      "Finalize Trade"
+                    )}
+                  </button>
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    Send trade offer to the other user
+                  </p>
+                </>
+              )}
+              
+              {tradeOffer && tradeOffer.status === "PENDING" && tradeOffer.fromUserId === currentUserId && (
+                <>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+                    <p className="text-sm font-medium text-yellow-800 mb-1">⏳ Trade Offer Sent</p>
+                    <p className="text-xs text-yellow-600">Waiting for {otherUser?.name || otherUser?.username} to respond</p>
+                  </div>
+                  <button
+                    className="w-full bg-gray-400 text-white font-medium py-3 rounded-xl cursor-not-allowed opacity-75 mt-3"
+                    disabled
+                  >
+                    Waiting for Response
+                  </button>
+                </>
+              )}
+              
+              {tradeOffer && tradeOffer.status === "PENDING" && tradeOffer.toUserId === currentUserId && (
+                <>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 text-center">
+                    <p className="text-sm font-medium text-blue-800 mb-1">🤝 Trade Offer Received</p>
+                    <p className="text-xs text-blue-600">{otherUser?.name || otherUser?.username} wants to trade with you</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={acceptTrade}
+                      disabled={isProcessingTrade}
+                    >
+                      {isProcessingTrade ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : (
+                        "✓ Accept"
+                      )}
+                    </button>
+                    <button
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={declineTrade}
+                      disabled={isProcessingTrade}
+                    >
+                      {isProcessingTrade ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : (
+                        "✕ Decline"
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    Accept to complete the trade or decline the offer
+                  </p>
+                </>
+              )}
+              
+              {tradeOffer && tradeOffer.status === "ACCEPTED" && (
+                <>
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-3 text-center">
+                    <p className="text-lg mb-1">✅</p>
+                    <p className="text-sm font-medium text-green-800 mb-1">Trade Completed!</p>
+                    <p className="text-xs text-green-600">Items have been exchanged</p>
+                  </div>
+                  <button
+                    className="w-full bg-gray-400 text-white font-medium py-3 rounded-xl cursor-not-allowed opacity-75"
+                    disabled
+                  >
+                    Trade Accepted
+                  </button>
+                </>
+              )}
+              
+              {tradeOffer && tradeOffer.status === "DECLINED" && (
+                <>
+                  <div className="bg-gray-100 border border-gray-300 rounded-xl p-3 mb-3 text-center">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Trade Declined</p>
+                    <p className="text-xs text-gray-500">This trade offer was declined</p>
+                  </div>
+                  <button
+                    className="w-full bg-gray-400 text-white font-medium py-3 rounded-xl cursor-not-allowed opacity-75"
+                    disabled
+                  >
+                    Trade Declined
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Simple match info */}

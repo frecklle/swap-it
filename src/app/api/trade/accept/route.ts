@@ -17,13 +17,32 @@ export async function POST(req: Request) {
   }
 
   await prisma.$transaction([
+    // Update trade offer status to ACCEPTED
     prisma.tradeOffer.update({
       where: { id: tradeId },
       data: { status: "ACCEPTED" },
     }),
-    prisma.clothing.deleteMany({
+    // Mark both clothing items as traded (removes from swipe feed)
+    prisma.clothing.updateMany({
       where: {
         id: { in: [trade.clothingFromId, trade.clothingToId] },
+      },
+      data: {
+        traded: true,
+      },
+    }),
+    // Decline all other pending trade offers for these items
+    prisma.tradeOffer.updateMany({
+      where: {
+        OR: [
+          { clothingFromId: { in: [trade.clothingFromId, trade.clothingToId] } },
+          { clothingToId: { in: [trade.clothingFromId, trade.clothingToId] } },
+        ],
+        status: "PENDING",
+        id: { not: tradeId },
+      },
+      data: {
+        status: "DECLINED",
       },
     }),
   ]);
