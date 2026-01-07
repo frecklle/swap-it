@@ -21,14 +21,14 @@ export async function GET(req: Request) {
           select: { 
             id: true, 
             username: true,
-            profilePicture: true  // ADDED
+            profilePicture: true  
           } 
         },
         userB: { 
           select: { 
             id: true, 
             username: true,
-            profilePicture: true  // ADDED
+            profilePicture: true  
           } 
         },
         clothingA: {
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
         },
         clothingB: {
           select: {
-            id: true,       // ADDED
+            id: true,      
             images: { select: { url: true }, take: 1 },
           },
         },

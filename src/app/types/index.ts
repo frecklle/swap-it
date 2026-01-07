@@ -11,8 +11,8 @@ export interface Clothing {
   name: string;
   description: string | null;
   category: string;
-  size: string | null;        // Add this
-  condition: string | null;   // Add this
+  size: string | null;       
+  condition: string | null;  
   ownerId: number;
   createdAt: string;
   updatedAt: string;

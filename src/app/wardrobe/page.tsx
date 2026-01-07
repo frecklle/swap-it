@@ -14,8 +14,8 @@ export default function Wardrobe() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Top");
-  const [size, setSize] = useState(""); // Added this
-  const [condition, setCondition] = useState(""); // Added this
+  const [size, setSize] = useState("");
+  const [condition, setCondition] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   const [clothes, setClothes] = useState<Clothing[]>([]);
@@ -187,8 +187,8 @@ export default function Wardrobe() {
           name: name.trim(),
           description: description.trim() || null,
           category,
-          size: size.trim() || null,        // Added this
-          condition: condition || null,      // Added this
+          size: size.trim() || null,
+          condition: condition || null,
           imageUrls: imageUrls,
           ownerId: userId,
         }),
@@ -200,8 +200,8 @@ export default function Wardrobe() {
         setName("");
         setDescription("");
         setCategory("Top");
-        setSize("");        // Added this
-        setCondition("");   // Added this
+        setSize("");
+        setCondition("");
         setImageUrls([]);
         setActiveWardrobeTab("view");
         showMessage("success", "Item added successfully!");
@@ -276,6 +276,15 @@ export default function Wardrobe() {
   const handleItemDeleted = (deletedItemId: number) => {
     setClothes(prev => prev.filter(item => item.id !== deletedItemId));
     showMessage("success", "Item deleted successfully!");
+  };
+
+  const handleItemUpdated = (updatedItem: Clothing) => {
+    setClothes(prev => 
+      prev.map(item => 
+        item.id === updatedItem.id ? updatedItem : item
+      )
+    );
+    showMessage("success", "Item updated successfully!");
   };
 
   if (loading) {
@@ -627,6 +636,7 @@ export default function Wardrobe() {
         isOpen={isModalOpen}
         onClose={closeItemDetails}
         onItemDeleted={handleItemDeleted}
+        onItemUpdated={handleItemUpdated} 
       />
 
       {selectedMatch && (

@@ -1,37 +1,128 @@
 // components/ClothingInfoModal.tsx
-import { MapPin } from "lucide-react";
+import { MapPin, Flag } from "lucide-react";
 import { Clothing } from "@/types";
+import { useState } from "react";
 
 interface ClothingInfoModalProps {
   item: Clothing;
   onClose: () => void;
+  onUserBlocked?: (userId: number) => void; 
+  onRefreshFeed?: () => void;
+  isBlocked?: boolean;
 }
 
-export default function ClothingInfoModal({ item, onClose }: ClothingInfoModalProps) {
+export default function ClothingInfoModal({ 
+  item, 
+  onClose, 
+  onUserBlocked,
+  onRefreshFeed,
+  isBlocked: initialIsBlocked = false
+}: ClothingInfoModalProps) {
+  const [isBlocking, setIsBlocking] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(initialIsBlocked);
+  
+  const handleBlockUser = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!item.owner?.id) {
+      alert("Cannot block user without owner information");
+      return;
+    }
+    
+    const userId = item.owner.id;
+    const username = item.owner.username || "this user";
+    
+    // Confirm with user
+    if (!confirm(`Are you sure you want to block ${username}? You will no longer see any items from this user, and any existing likes/matches will be removed.`)) {
+      return;
+    }
+    
+    setIsBlocking(true);
+    
+    try {
+      const response = await fetch('/api/blocks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          blockedId: userId,
+          reason: "User requested to hide items"
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setIsBlocked(true);
+        alert(`You've blocked ${username}. Their items will no longer appear in your feed.`);
+        
+        // Notify parent component
+        if (onUserBlocked) {
+          onUserBlocked(userId);
+        }
+
+        if (onRefreshFeed) {
+          onRefreshFeed();
+        } else {
+          window.location.reload();
+        }
+        
+        // Close the modal after blocking
+        onClose();
+      } else {
+        alert(`Failed to block user: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      alert("Failed to block user. Please try again.");
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+  
+  const showBlockButton = !isBlocked;
+
   return (
     <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl max-w-md w-full mx-4 overflow-hidden"
+        className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-full h-64 bg-gray-100">
-          {item.images[0]?.url ? (
-            <img
-              src={item.images[0].url}
-              alt={item.name}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-4xl mb-2">👕</div>
-                <p className="text-gray-500">No image available</p>
+        {/* Image Section */}
+        <div className="relative">
+          <div className="w-full h-80 bg-gray-100 flex items-center justify-center">
+            {item.images[0]?.url ? (
+              <img
+                src={item.images[0].url}
+                alt={item.name}
+                className="w-full h-full object-contain p-4"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">👕</div>
+                  <p className="text-gray-500">No image available</p>
+                </div>
               </div>
-            </div>
+            )}
+          </div>
+          
+          {/* Block Button */}
+          {showBlockButton && (
+            <button
+              onClick={handleBlockUser}
+              disabled={isBlocking}
+              className="absolute top-4 right-4 bg-white/90 hover:bg-white p-2.5 rounded-full shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Block user - Hide all their items"
+              aria-label="Block user to hide all their items"
+            >
+              <Flag size={20} className={isBlocking ? "text-gray-400" : "text-gray-700"} />
+            </button>
           )}
         </div>
 
@@ -41,7 +132,7 @@ export default function ClothingInfoModal({ item, onClose }: ClothingInfoModalPr
               <img
                 src={item.owner.profilePicture}
                 alt={item.owner.username}
-                className="w-12 h-12 rounded-full border-2 border-gray-200"
+                className="w-12 h-12 rounded-full border-2 border-gray-200 object-cover"
                 loading="lazy"
               />
             ) : (
@@ -52,6 +143,11 @@ export default function ClothingInfoModal({ item, onClose }: ClothingInfoModalPr
             <div>
               <h4 className="font-bold text-gray-800">
                 {item.owner?.name || item.owner?.username || "User"}
+                {isBlocked && (
+                  <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                    Blocked
+                  </span>
+                )}
               </h4>
               <p className="text-sm text-gray-500">@{item.owner?.username}</p>
             </div>
@@ -69,7 +165,16 @@ export default function ClothingInfoModal({ item, onClose }: ClothingInfoModalPr
           </div>
 
           {item.description && (
-            <p className="text-gray-600 text-sm mb-4">{item.description}</p>
+            <p className="text-gray-600 text-sm mb-6">{item.description}</p>
+          )}
+          
+          {isBlocked && (
+            <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-100">
+              <p className="text-sm text-red-700 flex items-center gap-2">
+                <Flag size={14} />
+                You've blocked this user. Their items are hidden from your view.
+              </p>
+            </div>
           )}
 
           <button

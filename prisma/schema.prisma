@@ -8,26 +8,36 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  email     String   @unique
-  password  String
-  bio       String?
-  name      String?
+  id             Int       @id @default(autoincrement())
+  username       String    @unique
+  email          String    @unique
+  password       String
+  bio            String?
+  name           String?
   profilePicture String?
-  latitude  Float?
-  longitude Float?
-  searchDistance Int @default(50)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  messagesSent Message[] @relation("MessagesSent")
+  latitude       Float?
+  longitude      Float?
+  searchDistance Int       @default(50)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  messagesSent   Message[] @relation("MessagesSent")
 
-  clothes   Clothing[]
-  matchesA Match[] @relation("UserMatchesA")
-  matchesB Match[] @relation("UserMatchesB")
+  clothes  Clothing[]
+  matchesA Match[]    @relation("UserMatchesA")
+  matchesB Match[]    @relation("UserMatchesB")
 
   // Likes sent by this user
-  likesSent Like[] @relation("LikesSent") 
+  likesSent Like[] @relation("LikesSent")
+
+  blocksInitiated Block[] @relation("Blocker")
+  blocksReceived  Block[] @relation("Blocked")
+
+  tradesSent     TradeOffer[] @relation("TradeFromUser")
+  tradesReceived TradeOffer[] @relation("TradeToUser")
+
+  // Removed problematic self-relations:
+  // blocking  User[]   @relation("Blocking", references: [id])
+  // blockedBy User[]   @relation("BlockedBy", references: [id])
 }
 
 model Clothing {
@@ -35,20 +45,21 @@ model Clothing {
   name        String
   description String?
   category    String
-  size        String?   // Add this line
-  condition   String?   // Add this line
+  size        String?
+  condition   String?
   owner       User     @relation(fields: [ownerId], references: [id])
   ownerId     Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  images      ClothingImage[]
+  images ClothingImage[]
 
-  // Matches
   matchesA Match[] @relation("ClothingA")
   matchesB Match[] @relation("ClothingB")
 
-  // Likes received
+  tradeOffersFrom     TradeOffer[] @relation("OfferFrom")
+  tradeOffersTo       TradeOffer[] @relation("OfferTo")
+
   likesReceived Like[] @relation("LikesReceived")
 }
 
@@ -62,11 +73,11 @@ model Like {
 }
 
 model ClothingImage {
-  id        Int      @id @default(autoincrement())
-  url       String
-  clothing  Clothing @relation(fields: [clothingId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  url        String
+  clothing   Clothing @relation(fields: [clothingId], references: [id], onDelete: Cascade)
   clothingId Int
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([clothingId])
 }
@@ -82,9 +93,11 @@ model Match {
   clothingB   Clothing? @relation("ClothingB", fields: [clothingBId], references: [id])
   clothingBId Int?
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt  // Fixed: Added @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  messages    Message[] // This already references Message model
+  messages Message[]
+
+  tradeOffers   TradeOffer[]
 
   @@unique([userAId, userBId])
   @@unique([clothingAId, clothingBId])
@@ -102,4 +115,48 @@ model Message {
   @@index([matchId])
   @@index([senderId])
   @@index([createdAt])
+}
+
+model Block {
+  id        Int      @id @default(autoincrement())
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockerId Int
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  blockedId Int
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model TradeOffer {
+  id             Int      @id @default(autoincrement())
+  match          Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  matchId        Int
+
+  fromUser       User     @relation("TradeFromUser", fields: [fromUserId], references: [id])
+  fromUserId     Int
+
+  toUser         User     @relation("TradeToUser", fields: [toUserId], references: [id])
+  toUserId       Int
+
+  clothingFrom   Clothing @relation("OfferFrom", fields: [clothingFromId], references: [id])
+  clothingFromId Int
+
+  clothingTo     Clothing @relation("OfferTo", fields: [clothingToId], references: [id])
+  clothingToId   Int
+
+  status         TradeStatus @default(PENDING)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([matchId, status])
+}
+
+enum TradeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
 }

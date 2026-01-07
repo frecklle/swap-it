@@ -1685,9 +1685,7 @@ define(['exports'], (function (exports) { 'use strict';
         const cache = await self.caches.open(cacheName);
         const hasCacheUpdateCallback = this.hasCallback('cacheDidUpdate');
         const oldResponse = hasCacheUpdateCallback ? await cacheMatchIgnoreParams(
-        // TODO(philipwalton): the `__WB_REVISION__` param is a precaching
-        // feature. Consider into ways to only add this behavior if using
-        // precaching.
+
         cache, effectiveRequest.clone(), ['__WB_REVISION__'], matchOptions) : null;
         {
           logger.debug(`Updating the '${cacheName}' cache with a new Response ` + `for ${getFriendlyURL(effectiveRequest.url)}.`);

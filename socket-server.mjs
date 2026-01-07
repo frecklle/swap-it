@@ -17,7 +17,7 @@ const httpServer = http.createServer();
 // Initialize Socket.IO
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // Allow all origins for production
+    origin: "*", 
     methods: ["GET", "POST"],
     credentials: true,
   },

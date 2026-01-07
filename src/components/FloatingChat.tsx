@@ -307,6 +307,21 @@ export default function FloatingChat({ matchId, onClose }: FloatingChatProps) {
   const otherUser = getOtherUser();
   const otherClothing = getOtherClothing();
   const myClothing = getMyClothing();
+const finalizeTrade = async () => {
+  if (!myClothing || !otherClothing) return;
+
+  await fetch("/api/trade", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      matchId,
+      clothingFromId: myClothing.id,
+      clothingToId: otherClothing.id,
+    }),
+  });
+};
+
 
   if (isLoading || !match) {
     return (
@@ -536,27 +551,20 @@ export default function FloatingChat({ matchId, onClose }: FloatingChatProps) {
               </div>
             </div>
 
-            {/* Quick tips */}
-            <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-              <p className="text-xs font-medium text-blue-700 mb-1">💬 Discuss:</p>
-              <div className="grid grid-cols-2 gap-1">
-                <div className="text-xs text-blue-600 flex items-center gap-1">
-                  <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
-                  Item condition
-                </div>
-                <div className="text-xs text-blue-600 flex items-center gap-1">
-                  <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
-                  Meetup spot
-                </div>
-                <div className="text-xs text-blue-600 flex items-center gap-1">
-                  <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
-                  Exchange time
-                </div>
-                <div className="text-xs text-blue-600 flex items-center gap-1">
-                  <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
-                  Any questions
-                </div>
-              </div>
+            {/* Finalize Trade Button */}
+            <div className="mt-4 p-3 border-t border-gray-200">
+              <button
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg"
+                onClick={() => {
+                  // TODO: Add trade finalization logic
+                  alert("Trade finalization feature coming soon!");
+                }}
+              >
+                Finalize Trade
+              </button>
+              <p className="text-xs text-gray-500 text-center mt-2">
+                Mark this trade as completed
+              </p>
             </div>
 
             {/* Simple match info */}

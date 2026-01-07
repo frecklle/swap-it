@@ -261,54 +261,58 @@ export default function HomePage() {
     localStorage.setItem("liked_clothing_ids", JSON.stringify([...updated]));
   };
 
-  const handleSwipe = async (direction: "left" | "right") => {
-    if (!item) return;
+const handleSwipe = async (direction: "left" | "right") => {
+  if (!item) return;
 
-    let shouldRefreshMatches = false;
+  let shouldRefreshMatches = false;
+  
+  const currentItemId = item.id;
 
-    if (direction === "right") {
-      markAsLiked(item.id);
-      shouldRefreshMatches = true;
+  if (direction === "right") {
+    markAsLiked(currentItemId);
+    shouldRefreshMatches = true;
+    
+    try {
+      const res = await fetch("/api/like", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ clothingId: currentItemId }),
+      });
       
-      try {
-        const res = await fetch("/api/like", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ clothingId: item.id }),
-        });
+      if (res.ok) {
+        const result = await res.json();
         
-        if (res.ok) {
-          const result = await res.json();
-          
-          if (result.message === "Matched!") {
-            setNewMatch({
-              id: result.matchId || Date.now(),
-              userA: result.userA || { id: 0, username: "You" },
-              userB: result.userB || { id: item.ownerId, username: item.owner?.username || "User" },
-              clothingA: result.clothingA || { id: item.id, name: item.name, images: item.images },
-              clothingB: result.clothingB,
-              createdAt: new Date().toISOString(),
-            });
-          }
+        if (result.message === "Matched!") {
+          setNewMatch({
+            id: result.matchId || Date.now(),
+            userA: result.userA || { id: 0, username: "You" },
+            userB: result.userB || { id: item.ownerId, username: item.owner?.username || "User" },
+            clothingA: result.clothingA || { id: item.id, name: item.name, images: item.images },
+            clothingB: result.clothingB,
+            createdAt: new Date().toISOString(),
+          });
         }
-      } catch (err) {
-        console.error("Error liking item:", err);
       }
+    } catch (err) {
+      console.error("Error liking item:", err);
     }
+  }
 
-    if (currentIndex >= clothes.length - 1) {
-      fetchClothes();
-    } else {
-      setCurrentIndex(prev => prev + 1);
-    }
+  setClothes(prev => prev.filter(clothing => clothing.id !== currentItemId));
 
-    if (shouldRefreshMatches) {
-      setRefreshMatches(prev => prev + 1);
-    }
-  };
+  if (currentIndex >= clothes.length - 1) {
+    fetchClothes();
+  } else {
+    setCurrentIndex(prev => Math.min(prev, clothes.length - 2));
+  }
+
+  if (shouldRefreshMatches) {
+    setRefreshMatches(prev => prev + 1);
+  }
+};
 
   const swipe = async (dir: "left" | "right") => {
     await controls.start({
@@ -376,6 +380,18 @@ export default function HomePage() {
         return "bg-gray-100/90 text-gray-800 border-gray-200";
     }
   };
+
+  const handleUserBlocked = (userId: number) => {
+  setClothes(prev => prev.filter(item => item.owner?.id !== userId));
+  
+  if (item?.owner?.id === userId) {
+    if (currentIndex >= clothes.length - 1) {
+      fetchClothes();
+    } else {
+      setCurrentIndex(prev => prev + 1);
+    }
+  }
+};
 
   return (
     <div className="min-h-screen bg-white">
@@ -612,6 +628,8 @@ export default function HomePage() {
           <ClothingInfoModal
             item={item}
             onClose={() => setShowInfoModal(false)}
+            onUserBlocked={handleUserBlocked} 
+            onRefreshFeed={fetchClothes}
           />
         )}
 

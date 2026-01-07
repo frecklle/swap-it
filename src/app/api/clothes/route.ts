@@ -1,8 +1,8 @@
+// app/api/clothes/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromToken } from "@/lib/auth";
 
-// Haversine formula
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ✅ Check if user has location set
+    // Check if user has location set
     if (user.latitude == null || user.longitude == null) {
       return NextResponse.json({ 
         error: "Please set your location in settings to see items nearby" 
@@ -40,12 +40,22 @@ export async function GET(req: NextRequest) {
     const userLon = user.longitude;
     const userSearchDistance = user.searchDistance !== null && user.searchDistance !== undefined 
       ? user.searchDistance 
-      : 50; // Default 50km
+      : 50;
+
+    // Get users I've blocked
+    const blocks = await prisma.block.findMany({
+      where: { blockerId: user.id },
+      select: { blockedId: true }
+    });
+    const blockedUserIds = blocks.map(b => b.blockedId);
 
     // Build where clause
     const whereClause: any = {
-      ownerId: { not: user.id },
-      images: { some: {} }, // Only items with images
+      ownerId: { 
+        not: user.id,
+        notIn: blockedUserIds // Exclude blocked users
+      },
+      images: { some: {} },
     };
 
     // Add category filter

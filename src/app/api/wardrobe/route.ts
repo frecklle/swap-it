@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
         name: name.trim(),
         description: description?.trim() || null,
         category,
-        size: size?.trim() || null,        // Added this
-        condition: condition || null,       // Added this
+        size: size?.trim() || null,       
+        condition: condition || null,       
         ownerId: user.id,
       },
     });
